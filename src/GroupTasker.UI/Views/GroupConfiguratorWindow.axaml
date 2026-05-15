@@ -1,0 +1,116 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:GroupTasker.UI.ViewModels"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="600" d:DesignHeight="500"
+        x:Class="GroupTasker.UI.Views.GroupConfiguratorWindow"
+        x:DataType="vm:GroupConfiguratorViewModel"
+        Title="{Binding GroupName, StringFormat={}{0} - GroupTasker}"
+        Width="600" Height="500"
+        MinWidth="500" MinHeight="400"
+        Background="#1A1A1A"
+        WindowStartupLocation="CenterOwner">
+
+    <!-- No Design.DataContext: ctor requires services; designer cannot instantiate it parameterlessly. -->
+
+    <Grid RowDefinitions="Auto,*,Auto" Margin="24">
+
+        <!-- Group Name -->
+        <StackPanel Grid.Row="0" Margin="0,0,0,20">
+            <TextBlock Text="Group Name" FontSize="12" Foreground="#8F8F8F" Margin="0,0,0,6" />
+            <TextBox Text="{Binding GroupName}"
+                     FontSize="16" FontWeight="SemiBold"
+                     Foreground="White"
+                     Background="#252525"
+                     BorderBrush="#3A3A3A"
+                     BorderThickness="1"
+                     CornerRadius="6"
+                     Padding="12,8"
+                     PlaceholderText="Enter group name" />
+        </StackPanel>
+
+        <!-- Shortcut List -->
+        <Grid Grid.Row="1" RowDefinitions="Auto,*,Auto">
+            <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,12">
+                <TextBlock Text="Shortcuts" FontSize="12" Foreground="#8F8F8F" VerticalAlignment="Center" />
+                <Button Content="+ Add" Command="{Binding AddShortcutCommand}"
+                        Classes="Secondary"
+                        HorizontalAlignment="Right" Margin="12,0,0,0" />
+            </StackPanel>
+
+            <ScrollViewer Grid.Row="1">
+                <ItemsControl ItemsSource="{Binding Shortcuts}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:ShortcutViewModel">
+                            <Border Background="#252525" CornerRadius="4"
+                                    Padding="12,8" Margin="0,0,0,6">
+                                <Grid ColumnDefinitions="*,Auto,Auto">
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding DisplayName}"
+                                                   FontSize="14" Foreground="White" />
+                                        <TextBlock Text="{Binding TypeLabel}"
+                                                   FontSize="11" Foreground="#5A5A5A" />
+                                    </StackPanel>
+                                    <Button Grid.Column="2" Content="✕"
+                                            Command="{Binding $parent[ItemsControl].DataContext.RemoveShortcutCommand}"
+                                            CommandParameter="{Binding}"
+                                            Classes="Danger"
+                                            Width="32" Height="32"
+                                            VerticalAlignment="Center" />
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+
+
+        </Grid>
+
+        <!-- Action Buttons -->
+        <StackPanel Grid.Row="2" Orientation="Horizontal"
+                    HorizontalAlignment="Right"
+                    Margin="0,20,0,0" Spacing="12">
+            <Button Content="Cancel" Command="{Binding CancelCommand}" Classes="Secondary" />
+            <Button Content="Save" Command="{Binding SaveCommand}" Classes="Primary" />
+        </StackPanel>
+    </Grid>
+
+    <Window.Styles>
+        <Style Selector="Button.Primary">
+            <Setter Property="Background" Value="#4A4A4A" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="Padding" Value="24,10" />
+            <Setter Property="CornerRadius" Value="6" />
+        </Style>
+        <Style Selector="Button.Primary:pointerover">
+            <Setter Property="Background" Value="#5A5A5A" />
+        </Style>
+        <Style Selector="Button.Secondary">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="#8F8F8F" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Padding" Value="16,8" />
+            <Setter Property="CornerRadius" Value="4" />
+            <Setter Property="BorderBrush" Value="#3A3A3A" />
+            <Setter Property="BorderThickness" Value="1" />
+        </Style>
+        <Style Selector="Button.Secondary:pointerover">
+            <Setter Property="Background" Value="#2A2A2A" />
+            <Setter Property="Foreground" Value="White" />
+        </Style>
+        <Style Selector="Button.Danger">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="#CC4444" />
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="Padding" Value="4" />
+            <Setter Property="CornerRadius" Value="4" />
+            <Setter Property="BorderThickness" Value="0" />
+        </Style>
+        <Style Selector="Button.Danger:pointerover">
+            <Setter Property="Foreground" Value="#FF6666" />
+        </Style>
+    </Window.Styles>
+</Window>

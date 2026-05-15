@@ -1,0 +1,21 @@
+<Project>
+  <!--
+    Single source of truth for assembly metadata across every project in the solution.
+    Bump <VersionPrefix> here (and add a section to CHANGELOG.md) for each release.
+    The four-segment AssemblyVersion/FileVersion is derived automatically.
+  -->
+  <PropertyGroup>
+    <VersionPrefix>1.1.0</VersionPrefix>
+    <AssemblyVersion>$(VersionPrefix).0</AssemblyVersion>
+    <FileVersion>$(VersionPrefix).0</FileVersion>
+    <InformationalVersion>$(VersionPrefix)</InformationalVersion>
+
+    <Product>GroupTasker</Product>
+    <Company>GroupTasker</Company>
+    <Copyright>© 2026 GroupTasker contributors</Copyright>
+
+    <!-- Don't auto-append a "+commit-hash" suffix to InformationalVersion;
+         we want the UI string to stay clean. -->
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+  </PropertyGroup>
+</Project>

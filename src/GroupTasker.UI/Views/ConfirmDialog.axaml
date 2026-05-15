@@ -1,0 +1,50 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="GroupTasker.UI.Views.ConfirmDialog"
+        Width="380" Height="160"
+        Background="#1A1A1A"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False"
+        WindowDecorations="None">
+
+    <Grid RowDefinitions="*,Auto" Margin="24">
+        <StackPanel Grid.Row="0" VerticalAlignment="Center">
+            <TextBlock Name="TitleBlock"
+                       FontSize="16" FontWeight="SemiBold"
+                       Foreground="White" />
+            <TextBlock Name="MessageBlock"
+                       FontSize="13" Foreground="#8F8F8F"
+                       Margin="0,8,0,0"
+                       TextWrapping="Wrap" />
+        </StackPanel>
+
+        <StackPanel Grid.Row="1" Orientation="Horizontal"
+                    HorizontalAlignment="Right"
+                    Margin="0,16,0,0" Spacing="12">
+            <Button Content="Cancel" Name="CancelBtn" Classes="Secondary" />
+            <Button Content="Delete" Name="ConfirmBtn" Classes="Danger" />
+        </StackPanel>
+    </Grid>
+
+    <Window.Styles>
+        <Style Selector="Button.Secondary">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="#8F8F8F" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Padding" Value="16,8" />
+            <Setter Property="CornerRadius" Value="4" />
+            <Setter Property="BorderBrush" Value="#3A3A3A" />
+            <Setter Property="BorderThickness" Value="1" />
+        </Style>
+        <Style Selector="Button.Danger">
+            <Setter Property="Background" Value="#CC4444" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Padding" Value="16,8" />
+            <Setter Property="CornerRadius" Value="4" />
+        </Style>
+        <Style Selector="Button.Danger:pointerover">
+            <Setter Property="Background" Value="#DD5555" />
+        </Style>
+    </Window.Styles>
+</Window>
