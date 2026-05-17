@@ -83,7 +83,7 @@ public partial class App : Avalonia.Application
         services.AddSingleton<IShortcutService>(sp => new WindowsShortcutService(
             sp.GetRequiredService<IconExtractor>(),
             sp.GetRequiredService<IConfigPathProvider>(),
-            exePath ?? Path.Combine(exeDir, "GroupTasker.exe")));
+            exePath ?? Path.Combine(exeDir, "GroupTasker.App.exe")));
 
         services.AddSingleton<LauncherSettingsService>(sp =>
             new LauncherSettingsService(sp.GetRequiredService<IConfigPathProvider>(), LogError));

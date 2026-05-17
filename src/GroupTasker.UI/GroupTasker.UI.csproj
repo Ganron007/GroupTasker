@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <AssemblyName>GroupTasker</AssemblyName>
+    <AssemblyName>GroupTasker.App</AssemblyName>
     <ApplicationIcon>Assets\grouptasker.ico</ApplicationIcon>
     <TargetFramework>net9.0-windows</TargetFramework>
     <Nullable>enable</Nullable>

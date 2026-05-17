@@ -1,0 +1,32 @@
+# Build outputs
+bin/
+obj/
+out/
+
+# Visual Studio / Rider
+.vs/
+*.user
+*.suo
+*.sln.docstates
+*.userprefs
+.idea/
+
+# NuGet
+packages/
+*.nupkg
+
+# Test results
+TestResults/
+
+# OS files
+Thumbs.db
+.DS_Store
+
+# Application runtime data (created on first use)
+# config/     -- uncomment if you don't want to track default config
+# shortcut/   -- uncomment if you don't want to track shortcuts
+
+# Miscellaneous
+*.tmp
+*.bak
+*.swp
