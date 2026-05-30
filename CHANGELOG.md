@@ -36,6 +36,13 @@ there and add a new section at the top of this file for each release.
 - `LauncherWindow.OnDeactivated`: now suppresses close during active drag
   operations to prevent the flyout from dismissing mid-reorder.
 
+### Fixed
+
+- `LauncherShortcutViewModel.LoadIconAsync` now always sets a dark-gray
+  placeholder bitmap when the real icon is null, missing, or fails to load.
+  Shortcuts in the launcher flyout no longer appear as blank/transparent
+  boxes when their icon file is unavailable.
+
 ## [1.1.0] — 2026-05-13
 
 The Avalonia / Clean-Architecture rewrite of the original TaskbarGroups app.
