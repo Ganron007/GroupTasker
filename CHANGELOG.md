@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 The canonical version lives in `Directory.Build.props` — bump `<VersionPrefix>`
 there and add a new section at the top of this file for each release.
 
+## [1.2.0] — 2026-05-30
+
+### Added
+
+- Shortcut reorder in the group editor: drag-and-drop with visual feedback
+  (drag adorner follows cursor, live reordering during drag) plus Move Up/Down
+  buttons as an accessible alternative.
+- Shortcut reorder in the launcher flyout: long-press (300ms) any shortcut icon
+  to enter reorder mode, then drag to rearrange. Short click still launches.
+  Changes persist immediately via `GroupService.ReorderShortcutAsync`.
+- `GroupService.ReorderShortcutAsync` — atomic reorder-and-save that skips icon
+  rebuild (cheap path, same as renames).
+- `GroupConfiguratorViewModel` commands: `MoveUpCommand`, `MoveDownCommand`,
+  `MoveToIndex` for editor reorder.
+- `LauncherViewModel.ReorderCommand` and `GroupId` property for flyout reorder
+  persistence.
+- 2 new unit tests: `ReorderShortcutAsync_MovesAndSaves` and
+  `ReorderShortcutAsync_ThrowsWhenGroupMissing` (32 total, up from 30).
+
+### Changed
+
+- `GroupConfiguratorWindow` shortcut item template: added drag handle column
+  (⠿ grip), Move Up/Down buttons, and `PointerPressed/Moved/Released` handlers
+  for drag-and-drop.
+- `LauncherWindow` shortcut items: added `PointerMoved` and `PointerReleased`
+  handlers; named `ItemsControl` for code-behind access.
+- `LauncherWindow.OnDeactivated`: now suppresses close during active drag
+  operations to prevent the flyout from dismissing mid-reorder.
+
 ## [1.1.0] — 2026-05-13
 
 The Avalonia / Clean-Architecture rewrite of the original TaskbarGroups app.

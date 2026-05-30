@@ -88,6 +88,15 @@ public sealed class GroupService
             await _repository.SaveAsync(group, ct);
     }
 
+    public async Task ReorderShortcutAsync(Guid groupId, Guid shortcutId, int newIndex, CancellationToken ct = default)
+    {
+        var group = await _repository.GetByIdAsync(groupId, ct)
+            ?? throw new InvalidOperationException($"Group {groupId} not found.");
+
+        group.ReorderShortcut(shortcutId, newIndex);
+        await _repository.SaveAsync(group, ct);
+    }
+
     public async Task RebuildIconCacheAsync(Guid groupId, CancellationToken ct = default)
     {
         var group = await _repository.GetByIdAsync(groupId, ct)

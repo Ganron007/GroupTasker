@@ -32,7 +32,8 @@
              <!-- Shortcut grid — 7 columns, 44×44 cells, exact fit (320-2-10=308 = 7×44) -->
              <ScrollViewer Grid.Row="1" Padding="5,4"
                           HorizontalScrollBarVisibility="Disabled">
-                <ItemsControl ItemsSource="{Binding Shortcuts}">
+                <ItemsControl ItemsSource="{Binding Shortcuts}"
+                              Name="ShortcutsItemsControl">
                     <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>
                             <WrapPanel />
@@ -45,7 +46,9 @@
                                     Cursor="Hand"
                                     ToolTip.Tip="{Binding TooltipText}"
                                     Classes="ShortcutIcon"
-                                    PointerPressed="OnShortcutPressed">
+                                    PointerPressed="OnShortcutPressed"
+                                    PointerMoved="OnShortcutMoved"
+                                    PointerReleased="OnShortcutReleased">
                                 <Image Source="{Binding Icon}"
                                        Width="32" Height="32"
                                        Stretch="Uniform" />

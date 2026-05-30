@@ -128,4 +128,34 @@ public class GroupServiceTests : IDisposable
         await Assert.ThrowsAsync<InvalidOperationException>(
             () => _svc.DeleteGroupAsync(Guid.NewGuid()));
     }
+
+    [Fact]
+    public async Task ReorderShortcutAsync_MovesAndSaves()
+    {
+        var shortcuts = new[]
+        {
+            _shortcutSvc.Resolve("a.exe"),
+            _shortcutSvc.Resolve("b.exe"),
+            _shortcutSvc.Resolve("c.exe")
+        };
+        var group = await _svc.CreateGroupAsync("Tools", shortcuts);
+        var saveCount = _repo.SaveCallCount;
+        var shortcutB = group.Shortcuts[1];
+
+        await _svc.ReorderShortcutAsync(group.Id, shortcutB.Id, 0);
+
+        var reloaded = await _svc.GetGroupAsync(group.Id);
+        Assert.NotNull(reloaded);
+        Assert.Equal("b.exe", reloaded!.Shortcuts[0].SourcePath);
+        Assert.Equal("a.exe", reloaded.Shortcuts[1].SourcePath);
+        Assert.Equal("c.exe", reloaded.Shortcuts[2].SourcePath);
+        Assert.Equal(saveCount + 1, _repo.SaveCallCount);
+    }
+
+    [Fact]
+    public async Task ReorderShortcutAsync_ThrowsWhenGroupMissing()
+    {
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _svc.ReorderShortcutAsync(Guid.NewGuid(), Guid.NewGuid(), 0));
+    }
 }

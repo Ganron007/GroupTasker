@@ -40,19 +40,44 @@
             </StackPanel>
 
             <ScrollViewer Grid.Row="1">
-                <ItemsControl ItemsSource="{Binding Shortcuts}">
+                <ItemsControl ItemsSource="{Binding Shortcuts}"
+                              Name="ShortcutsItemsControl">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate x:DataType="vm:ShortcutViewModel">
                             <Border Background="#252525" CornerRadius="4"
-                                    Padding="12,8" Margin="0,0,0,6">
-                                <Grid ColumnDefinitions="*,Auto,Auto">
-                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                    Padding="12,8" Margin="0,0,0,6"
+                                    Name="ShortcutBorder"
+                                    Tag="{Binding}"
+                                    PointerPressed="OnShortcutPointerPressed"
+                                    PointerMoved="OnShortcutPointerMoved"
+                                    PointerReleased="OnShortcutPointerReleased">
+                                <Grid ColumnDefinitions="Auto,*,Auto,Auto">
+                                    <TextBlock Grid.Column="0" Text="⠿"
+                                               FontSize="16" Foreground="#5A5A5A"
+                                               VerticalAlignment="Center" Margin="0,0,10,0"
+                                               Cursor="Hand" />
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                         <TextBlock Text="{Binding DisplayName}"
                                                    FontSize="14" Foreground="White" />
                                         <TextBlock Text="{Binding TypeLabel}"
                                                    FontSize="11" Foreground="#5A5A5A" />
                                     </StackPanel>
-                                    <Button Grid.Column="2" Content="✕"
+                                    <StackPanel Grid.Column="2" Orientation="Vertical"
+                                                VerticalAlignment="Center" Margin="0,0,4,0">
+                                        <Button Content="▲"
+                                                Command="{Binding $parent[ItemsControl].DataContext.MoveUpCommand}"
+                                                CommandParameter="{Binding}"
+                                                Classes="Reorder"
+                                                Width="24" Height="20"
+                                                FontSize="10" />
+                                        <Button Content="▼"
+                                                Command="{Binding $parent[ItemsControl].DataContext.MoveDownCommand}"
+                                                CommandParameter="{Binding}"
+                                                Classes="Reorder"
+                                                Width="24" Height="20"
+                                                FontSize="10" />
+                                    </StackPanel>
+                                    <Button Grid.Column="3" Content="✕"
                                             Command="{Binding $parent[ItemsControl].DataContext.RemoveShortcutCommand}"
                                             CommandParameter="{Binding}"
                                             Classes="Danger"
@@ -111,6 +136,17 @@
         </Style>
         <Style Selector="Button.Danger:pointerover">
             <Setter Property="Foreground" Value="#FF6666" />
+        </Style>
+        <Style Selector="Button.Reorder">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="#6A6A6A" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="CornerRadius" Value="2" />
+            <Setter Property="Cursor" Value="Hand" />
+        </Style>
+        <Style Selector="Button.Reorder:pointerover">
+            <Setter Property="Foreground" Value="#AAAAAA" />
         </Style>
     </Window.Styles>
 </Window>

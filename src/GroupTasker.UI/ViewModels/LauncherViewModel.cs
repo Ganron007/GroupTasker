@@ -17,11 +17,15 @@ public partial class LauncherViewModel : ViewModelBase
     private readonly GroupService _groupService;
     private readonly IShortcutService _shortcutService;
     private readonly string _groupName;
+    private Group? _loadedGroup;
 
     [ObservableProperty] private string _title = "Loading…";
     [ObservableProperty] private ObservableCollection<LauncherShortcutViewModel> _shortcuts = [];
     [ObservableProperty] private Avalonia.Media.Imaging.Bitmap? _groupIcon;
     [ObservableProperty] private bool _isEmpty;
+    [ObservableProperty] private bool _isReorderMode;
+
+    public Guid GroupId => _loadedGroup?.Id ?? Guid.Empty;
 
     public LauncherViewModel(string groupName, GroupService groupService, IShortcutService shortcutService)
     {
@@ -47,6 +51,8 @@ public partial class LauncherViewModel : ViewModelBase
                 Title = $"{_groupName} (not found)";
                 return;
             }
+
+            _loadedGroup = group;
 
             Shortcuts = new ObservableCollection<LauncherShortcutViewModel>(
                 group.Shortcuts
@@ -93,6 +99,30 @@ public partial class LauncherViewModel : ViewModelBase
         if (exePath is not null)
             System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(exePath) { UseShellExecute = true });
         Close();
+    }
+
+    [RelayCommand]
+    private async Task ReorderAsync(object? parameter)
+    {
+        if (parameter is not (int oldIndex, int newIndex)) return;
+        if (_loadedGroup is null) return;
+        if (oldIndex < 0 || oldIndex >= Shortcuts.Count) return;
+        if (newIndex < 0 || newIndex >= Shortcuts.Count) return;
+
+        var shortcut = Shortcuts[oldIndex];
+        Shortcuts.Move(oldIndex, newIndex);
+
+        try
+        {
+            await _groupService.ReorderShortcutAsync(
+                _loadedGroup.Id,
+                shortcut.DomainShortcut.Id,
+                newIndex);
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Reorder save failed: {ex.Message}");
+        }
     }
 }
 

@@ -132,6 +132,33 @@ public partial class GroupConfiguratorViewModel : ViewModelBase
     }
 
     [RelayCommand]
+    private void MoveUp(ShortcutViewModel? shortcut)
+    {
+        if (shortcut is null) return;
+        var index = Shortcuts.IndexOf(shortcut);
+        if (index > 0)
+            Shortcuts.Move(index, index - 1);
+    }
+
+    [RelayCommand]
+    private void MoveDown(ShortcutViewModel? shortcut)
+    {
+        if (shortcut is null) return;
+        var index = Shortcuts.IndexOf(shortcut);
+        if (index >= 0 && index < Shortcuts.Count - 1)
+            Shortcuts.Move(index, index + 1);
+    }
+
+    public void MoveToIndex(ShortcutViewModel shortcut, int newIndex)
+    {
+        var oldIndex = Shortcuts.IndexOf(shortcut);
+        if (oldIndex < 0) return;
+        var clamped = Math.Clamp(newIndex, 0, Shortcuts.Count - 1);
+        if (oldIndex != clamped)
+            Shortcuts.Move(oldIndex, clamped);
+    }
+
+    [RelayCommand]
     private async Task Save()
     {
         try
