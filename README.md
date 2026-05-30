@@ -6,6 +6,7 @@ A Windows taskbar group launcher — pin app groups to your taskbar and launch m
 
 - **Group launchers** — create groups of shortcuts (apps, folders, URLs, store apps) and pin them to the taskbar as a single icon
 - **Lightweight flyout** — click the pinned icon to open a compact grid of shortcuts; stays open for multi-launch
+- **Shortcut reorder** — drag-and-drop shortcuts in the editor, or long-press-and-drag directly in the flyout; changes persist immediately
 - **Dead shortcut detection** — missing targets are dimmed with a "Not found" tooltip
 - **Persistent position** — the flyout remembers its last position across launches
 - **Single-instance** — clicking a pinned shortcut instantly opens the flyout via a background listener
@@ -28,8 +29,12 @@ dotnet build src\GroupTasker.UI\GroupTasker.UI.csproj
 # Run
 dotnet run --project src\GroupTasker.UI\GroupTasker.UI.csproj
 
-# Or publish self-contained
+# Publish self-contained (includes .NET runtime — ~100 MB)
 dotnet publish src\GroupTasker.UI\GroupTasker.UI.csproj -c Release -o out\GroupTasker --self-contained true -p:PublishReadyToRun=true
+
+# Publish framework-dependent (requires .NET 9 runtime installed — ~38 MB)
+dotnet publish src\GroupTasker.UI\GroupTasker.UI.csproj -c Release -r win-x64 --no-self-contained -o out\GroupTasker
+dotnet publish src\GroupTasker.Launcher\GroupTasker.Launcher.csproj -c Release -o out\GroupTasker
 ```
 
 ## Usage
@@ -56,6 +61,7 @@ tests/
 - Built with Avalonia 12.0.2 and .NET 9
 - Uses Clean Architecture (Domain → Application → Infrastructure → UI)
 - Self-contained publish: `--self-contained true` with ReadyToRun (no trimming — COM interop breaks under PublishTrimmed)
+- Framework-dependent publish: `--no-self-contained` for a smaller footprint (~38 MB); requires .NET 9 runtime + WindowsDesktop on the target machine
 - Version is managed in `Directory.Build.props`; update it and add a section to `CHANGELOG.md` for each release
 
 ## License
