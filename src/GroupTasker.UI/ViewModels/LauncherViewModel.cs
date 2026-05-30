@@ -3,8 +3,6 @@ using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
-using Avalonia.Media;
-using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -21,7 +19,7 @@ public partial class LauncherViewModel : ViewModelBase
     private readonly string _groupName;
     private Group? _loadedGroup;
 
-    [ObservableProperty] private string _title = "Loading…";
+    [ObservableProperty] private string _title = "Loading\u2026";
     [ObservableProperty] private ObservableCollection<LauncherShortcutViewModel> _shortcuts = [];
     [ObservableProperty] private Avalonia.Media.Imaging.Bitmap? _groupIcon;
     [ObservableProperty] private bool _isEmpty;
@@ -131,23 +129,6 @@ public partial class LauncherViewModel : ViewModelBase
 public partial class LauncherShortcutViewModel : ViewModelBase
 {
     private readonly IShortcutService _shortcutService;
-    private static Avalonia.Media.Imaging.Bitmap? _fallbackIcon;
-    private static readonly object FallbackLock = new();
-
-    private static Avalonia.Media.Imaging.Bitmap FallbackIcon
-    {
-        get
-        {
-            if (_fallbackIcon is null)
-            {
-                lock (FallbackLock)
-                {
-                    _fallbackIcon ??= CreateFallbackIcon();
-                }
-            }
-            return _fallbackIcon;
-        }
-    }
 
     public Shortcut DomainShortcut { get; }
 
@@ -203,39 +184,19 @@ public partial class LauncherShortcutViewModel : ViewModelBase
 
     private async Task LoadIconAsync()
     {
-        if (IsDead)
-        {
-            await Dispatcher.UIThread.InvokeAsync(() => Icon = FallbackIcon);
-            return;
-        }
+        if (IsDead) return;
 
         var iconPath = DomainShortcut.IconPath;
-        if (iconPath is not null && File.Exists(iconPath))
+        if (iconPath is null || !File.Exists(iconPath)) return;
+
+        try
         {
-            try
-            {
-                var bmp = await Task.Run(() => new Avalonia.Media.Imaging.Bitmap(iconPath));
-                await Dispatcher.UIThread.InvokeAsync(() => Icon = bmp);
-                return;
-            }
-            catch
-            {
-                // Icon file corrupted or invalid format — fall through to placeholder.
-            }
+            var bmp = await Task.Run(() => new Avalonia.Media.Imaging.Bitmap(iconPath));
+            await Dispatcher.UIThread.InvokeAsync(() => Icon = bmp);
         }
-
-        await Dispatcher.UIThread.InvokeAsync(() => Icon = FallbackIcon);
-    }
-
-    private static Avalonia.Media.Imaging.Bitmap CreateFallbackIcon()
-    {
-        var size = 32;
-        var bitmap = new Avalonia.Media.Imaging.RenderTargetBitmap(
-            new Avalonia.PixelSize(size, size), new Avalonia.Vector(96, 96));
-
-        using var ctx = bitmap.CreateDrawingContext();
-        ctx.FillRectangle(new SolidColorBrush(Color.FromArgb(255, 80, 80, 80)),
-            new Avalonia.Rect(0, 0, size, size));
-        return bitmap;
+        catch
+        {
+            // Icon failed to load — Icon stays null, XAML background shows placeholder.
+        }
     }
 }

@@ -38,10 +38,11 @@ there and add a new section at the top of this file for each release.
 
 ### Fixed
 
-- `LauncherShortcutViewModel.LoadIconAsync` now always sets a dark-gray
-  placeholder bitmap when the real icon is null, missing, or fails to load.
-  Shortcuts in the launcher flyout no longer appear as blank/transparent
-  boxes when their icon file is unavailable.
+- Shortcut cells in the launcher flyout now have a dark background (`#2A2A2A`
+  in the `ShortcutIcon` style) instead of `Transparent`. When a shortcut icon
+  cannot be loaded (null path, missing file, or format error), the cell shows
+  a visible dark square rather than appearing as a completely blank/transparent
+  box.
 
 ## [1.1.0] — 2026-05-13
 
