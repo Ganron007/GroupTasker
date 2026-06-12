@@ -13,9 +13,6 @@ public interface IShortcutService
     /// <summary>Launch a shortcut (process start, shell execute, or store app activation).</summary>
     void Launch(Shortcut shortcut);
 
-    /// <summary>Create a temporary .lnk file for drag-and-drop operations.</summary>
-    string CreateTempLink(Shortcut shortcut);
-
     /// <summary>Pin a group's launcher shortcut to the Windows taskbar. Returns true if pinning succeeded.</summary>
     bool PinToTaskbar(Group group, string launcherPath);
 

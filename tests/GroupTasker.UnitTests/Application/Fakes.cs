@@ -66,7 +66,6 @@ internal sealed class FakeShortcutService : IShortcutService
     };
 
     public void Launch(Shortcut shortcut) => LaunchCalls++;
-    public string CreateTempLink(Shortcut shortcut) => Path.GetTempFileName() + ".lnk";
 
     public string CreateGroupLauncherLink(Group group, string iconPath)
     {

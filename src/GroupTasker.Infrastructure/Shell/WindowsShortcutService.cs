@@ -150,24 +150,6 @@ public sealed class WindowsShortcutService : IShortcutService
         }
     }
 
-    public string CreateTempLink(DomainShortcut shortcut)
-    {
-        var tempDir = Path.Combine(Path.GetTempPath(), "GroupTasker");
-        Directory.CreateDirectory(tempDir);
-        var tempPath = Path.Combine(tempDir, $"{FileNameSanitizer.Sanitize(shortcut.DisplayName)}.lnk");
-
-        ShellLinkInterop.CreateShortcut(
-            targetPath: shortcut.TargetPath ?? shortcut.SourcePath,
-            appUserModelId: $"grouptasker.local.drag.{shortcut.Id:N}",
-            description: shortcut.DisplayName,
-            workingDirectory: shortcut.WorkingDirectory ?? "",
-            iconLocation: shortcut.IconPath ?? shortcut.TargetPath ?? shortcut.SourcePath,
-            savePath: tempPath,
-            arguments: shortcut.Arguments);
-
-        return tempPath;
-    }
-
     public string CreateGroupLauncherLink(DomainGroup group, string iconPath)
     {
         Directory.CreateDirectory(_paths.ShortcutFolder);

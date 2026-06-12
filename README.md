@@ -20,7 +20,7 @@ A Windows taskbar group launcher — pin app groups to your taskbar and launch m
 
 ```powershell
 # Clone
-git clone https://github.com/YOUR_USERNAME/GroupTasker.git
+git clone https://github.com/Ganron007/GroupTasker.git
 cd GroupTasker
 
 # Build

@@ -11,6 +11,9 @@ out/
 *.userprefs
 .idea/
 
+# Claude Code
+.claude/
+
 # NuGet
 packages/
 *.nupkg
