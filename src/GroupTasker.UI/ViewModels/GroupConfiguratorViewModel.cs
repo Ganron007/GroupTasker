@@ -1,6 +1,8 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Avalonia.Controls;
@@ -9,6 +11,7 @@ using CommunityToolkit.Mvvm.Input;
 using GroupTasker.Application.Services;
 using GroupTasker.Domain.Entities;
 using GroupTasker.Domain.Interfaces;
+using GroupTasker.UI.Views;
 
 namespace GroupTasker.UI.ViewModels;
 
@@ -21,24 +24,36 @@ public sealed class GroupConfiguratorViewModelFactory
 {
     private readonly GroupService _groupService;
     private readonly IShortcutService _shortcutService;
+    private readonly ITaskbarEnumerator _taskbarEnumerator;
+    private readonly IAppActivator _activator;
+    private readonly ILiveAppResolver _liveResolver;
 
-    public GroupConfiguratorViewModelFactory(GroupService groupService, IShortcutService shortcutService)
+    public GroupConfiguratorViewModelFactory(
+        GroupService groupService,
+        IShortcutService shortcutService,
+        ITaskbarEnumerator taskbarEnumerator,
+        IAppActivator activator,
+        ILiveAppResolver liveResolver)
     {
         _groupService = groupService;
         _shortcutService = shortcutService;
+        _taskbarEnumerator = taskbarEnumerator;
+        _activator = activator;
+        _liveResolver = liveResolver;
     }
 
     public GroupConfiguratorViewModel CreateForNewGroup() =>
-        new(null, _groupService, _shortcutService);
+        new(null, _groupService, _shortcutService, _taskbarEnumerator);
 
     public GroupConfiguratorViewModel CreateForExisting(Group existing) =>
-        new(existing, _groupService, _shortcutService);
+        new(existing, _groupService, _shortcutService, _taskbarEnumerator);
 }
 
 public partial class GroupConfiguratorViewModel : ViewModelBase
 {
     private readonly GroupService _groupService;
     private readonly IShortcutService _shortcutService;
+    private readonly ITaskbarEnumerator _taskbarEnumerator;
     private readonly Group? _editingGroup;
 
     public Group? SavedGroup { get; private set; }
@@ -58,10 +73,12 @@ public partial class GroupConfiguratorViewModel : ViewModelBase
     public GroupConfiguratorViewModel(
         Group? existingGroup,
         GroupService groupService,
-        IShortcutService shortcutService)
+        IShortcutService shortcutService,
+        ITaskbarEnumerator taskbarEnumerator)
     {
         _groupService = groupService;
         _shortcutService = shortcutService;
+        _taskbarEnumerator = taskbarEnumerator;
 
         if (existingGroup is not null)
         {
@@ -121,6 +138,57 @@ public partial class GroupConfiguratorViewModel : ViewModelBase
         catch (Exception ex)
         {
             ErrorMessage = $"File picker error: {ex.Message}";
+        }
+    }
+
+    /// <summary>
+    /// Open the "Add from running apps" picker. Discovers pinned taskbar items
+    /// and currently-running windows so the user can include auto-updating
+    /// apps (Claude Desktop, Codex, etc.) that don't have stable desktop
+    /// shortcuts. Selected apps are added as <see cref="ShortcutType.LiveApplication"/>
+    /// which resolves the current .exe at launch time.
+    /// </summary>
+    [RelayCommand]
+    private async Task AddRunningApp()
+    {
+        if (HostWindow is null) return;
+
+        try
+        {
+            var apps = _taskbarEnumerator.Enumerate();
+            if (apps.Count == 0)
+            {
+                ErrorMessage = "No running apps or pinned taskbar items found.";
+                return;
+            }
+
+            var picker = new AppPickerDialog
+            {
+                DataContext = new AppPickerViewModel(apps)
+            };
+
+            // The dialog returns the selected DiscoveredApp (or null if cancelled)
+            var selected = await picker.ShowPickerAsync(HostWindow);
+            if (selected is null) return;
+
+            var launchKey = selected.Aumi ?? selected.ProcessName ?? selected.ExecutablePath ?? selected.DisplayName;
+            // Don't set IconPath here — leave it null so BuildIconsIfDirtyAsync
+            // extracts a fresh icon and stores it as a stable cached PNG.
+            // Setting it to selected.ExecutablePath would make the icon stale
+            // the moment the underlying app updates to a new version folder.
+            var shortcut = new Shortcut
+            {
+                SourcePath = launchKey,
+                TargetPath = selected.Aumi,
+                Type = ShortcutType.LiveApplication,
+                DisplayName = selected.DisplayName,
+                IconPath = null
+            };
+            Shortcuts.Add(new ShortcutViewModel(shortcut));
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Discovery failed: {ex.Message}";
         }
     }
 
@@ -211,6 +279,7 @@ public partial class ShortcutViewModel : ViewModelBase
             ShortcutType.Folder => "Folder",
             ShortcutType.StoreApp => "Store",
             ShortcutType.Link => "Shortcut",
+            ShortcutType.LiveApplication => "Live",
             _ => "File"
         };
     }

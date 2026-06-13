@@ -1,5 +1,6 @@
 using System.Drawing;
 using System.Drawing.Imaging;
+using GroupTasker.Domain.Entities;
 using GroupTasker.Domain.Interfaces;
 using DomainGroup = GroupTasker.Domain.Entities.Group;
 using DomainShortcut = GroupTasker.Domain.Entities.Shortcut;
@@ -15,10 +16,21 @@ namespace GroupTasker.Infrastructure.IconExtraction;
 public sealed class IconCacheService : IIconCacheService
 {
     private readonly IconExtractor _extractor;
+    private readonly ILiveAppResolver? _liveResolver;
 
-    public IconCacheService(IconExtractor extractor)
+    /// <summary>
+    /// The minimum size (in bytes) of a real icon PNG. The fallback gray
+    /// bitmap is exactly 244 bytes; anything significantly larger is a
+    /// successful extraction. Used to detect stale fallbacks left in the
+    /// cache by earlier broken builds so they get re-extracted on the next
+    /// save.
+    /// </summary>
+    private const int FallbackSizeBytes = 300;
+
+    public IconCacheService(IconExtractor extractor, ILiveAppResolver? liveResolver = null)
     {
         _extractor = extractor;
+        _liveResolver = liveResolver;
     }
 
     public async Task<string> GetIconPathAsync(DomainShortcut shortcut, string groupPath, CancellationToken ct = default)
@@ -30,25 +42,34 @@ public sealed class IconCacheService : IIconCacheService
         // folders cannot collide. The old name-based key silently aliased them.
         var iconPath = Path.Combine(iconsDir, $"{shortcut.Id:N}.png");
 
-        if (File.Exists(iconPath))
+        // Skip only if a *real* icon already exists. The fallback gray bitmap
+        // is exactly 244 bytes — anything smaller is treated as stale and
+        // re-extracted. This handles the case where an earlier build left a
+        // bad icon in the cache.
+        if (File.Exists(iconPath) && new FileInfo(iconPath).Length > FallbackSizeBytes)
             return iconPath;
 
-        var sourcePath = shortcut.TargetPath ?? shortcut.SourcePath;
+        // Resolve the source for icon extraction. LiveApplication shortcuts
+        // store an AUMI or process name, not a file path.
+        var sourcePath = ResolveSourceForIconExtraction(shortcut);
 
         await Task.Run(() =>
         {
             try
             {
+                if (sourcePath is null || !File.Exists(sourcePath))
+                {
+                    SaveFallback(iconPath);
+                    return;
+                }
+
                 using var bitmap = _extractor.ExtractIcon(sourcePath);
                 using var resized = IconFactory.ResizeImage(bitmap, 64, 64);
                 SaveAtomic(resized, iconPath);
             }
             catch
             {
-                using var fallback = new Bitmap(64, 64);
-                using (var g = Graphics.FromImage(fallback))
-                    g.Clear(Color.FromArgb(55, 55, 55));
-                SaveAtomic(fallback, iconPath);
+                SaveFallback(iconPath);
             }
         }, ct).ConfigureAwait(false);
 
@@ -62,42 +83,48 @@ public sealed class IconCacheService : IIconCacheService
 
         await Task.Run(() =>
         {
-            var bitmaps = new List<Bitmap>();
             try
             {
-                foreach (var size in IIconCacheService.IconSizes)
+                var bitmaps = new List<Bitmap>();
+                try
                 {
-                    ct.ThrowIfCancellationRequested();
-                    bitmaps.Add(BuildCompositeIcon(group, size));
-                }
+                    foreach (var size in IIconCacheService.IconSizes)
+                    {
+                        ct.ThrowIfCancellationRequested();
+                        bitmaps.Add(BuildCompositeIcon(group, size));
+                    }
 
-                using var ms = new MemoryStream();
-                IconFactory.SavePngsAsIcon(bitmaps, ms);
-                File.WriteAllBytes(iconPath + ".tmp", ms.ToArray());
-                File.Move(iconPath + ".tmp", iconPath, overwrite: true);
+                    using var ms = new MemoryStream();
+                    IconFactory.SavePngsAsIcon(bitmaps, ms);
+                    File.WriteAllBytes(iconPath + ".tmp", ms.ToArray());
+                    File.Move(iconPath + ".tmp", iconPath, overwrite: true);
+                }
+                catch
+                {
+                    // Fallback: solid-fill icon so the .lnk has *something* on disk.
+                    foreach (var bmp in bitmaps) bmp.Dispose();
+                    bitmaps.Clear();
+
+                    foreach (var size in IIconCacheService.IconSizes)
+                    {
+                        var bmp = new Bitmap(size, size);
+                        using (var g = Graphics.FromImage(bmp))
+                            g.Clear(Color.FromArgb(55, 55, 55));
+                        bitmaps.Add(bmp);
+                    }
+
+                    using var ms = new MemoryStream();
+                    IconFactory.SavePngsAsIcon(bitmaps, ms);
+                    File.WriteAllBytes(iconPath + ".tmp", ms.ToArray());
+                    File.Move(iconPath + ".tmp", iconPath, overwrite: true);
+                }
+                finally
+                {
+                    foreach (var bmp in bitmaps) bmp.Dispose();
+                }
             }
             catch
             {
-                // Fallback: solid-fill icon so the .lnk has *something* on disk.
-                foreach (var bmp in bitmaps) bmp.Dispose();
-                bitmaps.Clear();
-
-                foreach (var size in IIconCacheService.IconSizes)
-                {
-                    var bmp = new Bitmap(size, size);
-                    using (var g = Graphics.FromImage(bmp))
-                        g.Clear(Color.FromArgb(55, 55, 55));
-                    bitmaps.Add(bmp);
-                }
-
-                using var ms = new MemoryStream();
-                IconFactory.SavePngsAsIcon(bitmaps, ms);
-                File.WriteAllBytes(iconPath + ".tmp", ms.ToArray());
-                File.Move(iconPath + ".tmp", iconPath, overwrite: true);
-            }
-            finally
-            {
-                foreach (var bmp in bitmaps) bmp.Dispose();
             }
         }, ct).ConfigureAwait(false);
 
@@ -107,7 +134,6 @@ public sealed class IconCacheService : IIconCacheService
     public async Task RebuildCacheAsync(DomainGroup group, string groupPath, CancellationToken ct = default)
     {
         var iconsDir = Path.Combine(groupPath, "Icons");
-
         if (Directory.Exists(iconsDir))
             Directory.Delete(iconsDir, recursive: true);
 
@@ -123,14 +149,52 @@ public sealed class IconCacheService : IIconCacheService
         group.MarkIconCacheClean();
     }
 
+    /// <summary>
+    /// Pick the right file path to extract an icon from. For LiveApplication
+    /// shortcuts the stored Source/TargetPath is an AUMI or process name, not
+    /// a file, so we use <see cref="ILiveAppResolver"/> to find the current
+    /// .exe. For regular shortcuts, just return the stored path.
+    /// </summary>
+    private string? ResolveSourceForIconExtraction(DomainShortcut shortcut)
+    {
+        // 1) Highest priority: an explicit icon source (.ico file or
+        //    specific .exe with index) from the .lnk metadata.
+        if (!string.IsNullOrEmpty(shortcut.IconSourcePath) && File.Exists(shortcut.IconSourcePath))
+            return shortcut.IconSourcePath;
+
+        // 2) For LiveApplication shortcuts, the stored Source/TargetPath is
+        //    an AUMI or process name, not a file, so use the resolver.
+        if (shortcut.Type == ShortcutType.LiveApplication)
+        {
+            if (_liveResolver is null) return null;
+
+            var lookup = !string.IsNullOrEmpty(shortcut.TargetPath) && shortcut.TargetPath.Contains('!')
+                ? shortcut.TargetPath
+                : shortcut.SourcePath;
+
+            if (string.IsNullOrEmpty(lookup)) return null;
+            return _liveResolver.Resolve(lookup);
+        }
+
+        // 3) Fall back to the resolved target or original source path.
+        return shortcut.TargetPath ?? shortcut.SourcePath;
+    }
+
+    private static void SaveFallback(string iconPath)
+    {
+        using var fallback = new Bitmap(64, 64);
+        using (var g = Graphics.FromImage(fallback))
+            g.Clear(Color.FromArgb(55, 55, 55));
+        SaveAtomic(fallback, iconPath);
+    }
+
     private Bitmap BuildCompositeIcon(DomainGroup group, int size)
     {
         var bmp = new Bitmap(size, size);
         using var g = Graphics.FromImage(bmp);
         g.Clear(Color.FromArgb(55, 55, 55));
 
-        if (group.Shortcuts.Count == 0)
-            return bmp;
+        if (group.Shortcuts.Count == 0) return bmp;
 
         var margin = Math.Max(2, size / 8);
         var gap = Math.Max(1, size / 16);
@@ -147,8 +211,6 @@ public sealed class IconCacheService : IIconCacheService
 
             try
             {
-                // Reuse the per-shortcut PNG when it already exists — avoids re-running
-                // Shell/COM extraction every time the composite is regenerated.
                 using var src = LoadCachedOrExtract(shortcut);
                 g.DrawImage(src, x, y, sqSize, sqSize);
             }

@@ -19,12 +19,21 @@ public sealed class WindowsShortcutService : IShortcutService
     private readonly IconExtractor _extractor;
     private readonly IConfigPathProvider _paths;
     private readonly string _exePath;
+    private readonly IAppActivator _activator;
+    private readonly ILiveAppResolver _liveResolver;
 
-    public WindowsShortcutService(IconExtractor extractor, IConfigPathProvider paths, string exePath)
+    public WindowsShortcutService(
+        IconExtractor extractor,
+        IConfigPathProvider paths,
+        string exePath,
+        IAppActivator? activator = null,
+        ILiveAppResolver? liveResolver = null)
     {
         _extractor = extractor;
         _paths = paths;
         _exePath = exePath;
+        _activator = activator ?? new WindowsAppActivator();
+        _liveResolver = liveResolver ?? new LiveAppResolver();
     }
 
     public DomainShortcut Resolve(string sourcePath)
@@ -79,14 +88,37 @@ public sealed class WindowsShortcutService : IShortcutService
     {
         try
         {
-            var (target, args, workDir) = ShellLinkInterop.ReadShortcut(lnkPath);
+            var (target, args, workDir, iconLocation, _) = ShellLinkInterop.ReadShortcut(lnkPath);
 
             shortcut.Arguments = string.IsNullOrEmpty(args) ? null : args;
             shortcut.WorkingDirectory = string.IsNullOrEmpty(workDir) ? null : workDir;
 
+            // Store the icon location from the .lnk metadata. Many installers
+            // (Ollama, Claude, Codex) point the shortcut at a separate .ico
+            // file (e.g. app.ico) rather than the .exe itself, so we must
+            // honour that reference. Format: "C:\path\to\file.ico,0" where
+            // ",0" is the icon index. The trailing index is stripped because
+            // .ico files contain multiple icons and we just want the largest.
+            if (!string.IsNullOrEmpty(iconLocation))
+            {
+                var commaIdx = iconLocation.LastIndexOf(',');
+                shortcut.IconSourcePath = commaIdx > 0
+                    ? iconLocation[..commaIdx]
+                    : iconLocation;
+            }
+
             if (string.IsNullOrEmpty(target))
             {
-                shortcut.Type = DomainShortcutType.StoreApp;
+                // Some installers (e.g. Ollama) create desktop shortcuts whose
+                // resolved target path is empty when read via Shell COM.
+                // Categorize as a plain Link and keep the .lnk itself as the
+                // launch target — Windows will resolve the shortcut at launch
+                // time via UseShellExecute. This used to be miscategorised as
+                // StoreApp, which caused GroupTasker to launch
+                // `explorer.exe shell:appsFolder\` (empty AUMI) — opening the
+                // user's Documents folder instead of the app.
+                shortcut.Type = DomainShortcutType.Link;
+                shortcut.TargetPath = lnkPath;
                 shortcut.DisplayName = Path.GetFileNameWithoutExtension(lnkPath);
                 return shortcut;
             }
@@ -144,10 +176,59 @@ public sealed class WindowsShortcutService : IShortcutService
                 Process.Start(new ProcessStartInfo("explorer.exe", $"shell:appsFolder\\{target}") { UseShellExecute = true });
                 break;
 
+            case DomainShortcutType.LiveApplication:
+                LaunchLiveApplication(shortcut);
+                break;
+
             default:
                 Process.Start(new ProcessStartInfo(target) { UseShellExecute = true });
                 break;
         }
+    }
+
+    /// <summary>
+    /// Launch a LiveApplication shortcut. Tries AUMI first (most reliable),
+    /// then falls back to resolving the current .exe and starting it.
+    /// </summary>
+    private void LaunchLiveApplication(DomainShortcut shortcut)
+    {
+        var source = shortcut.SourcePath ?? "";
+        var aumi = shortcut.TargetPath ?? source;
+
+        // 1) If we have a valid AUMI (contains "!"), try to activate by AUMI
+        if (aumi.Contains('!') && _activator.ActivateByAumi(aumi)) return;
+
+        // 2) Try to resolve the current .exe path
+        var resolved = _liveResolver.Resolve(source);
+        if (!string.IsNullOrEmpty(resolved) && File.Exists(resolved))
+        {
+            Process.Start(new ProcessStartInfo(resolved)
+            {
+                UseShellExecute = true
+            });
+            return;
+        }
+
+        // 3) Last-ditch: shell-execute the source string
+        Process.Start(new ProcessStartInfo(source) { UseShellExecute = true });
+    }
+
+    /// <summary>
+    /// Build a <see cref="DomainShortcutType.LiveApplication"/> from a discovered
+    /// app (pinned taskbar item or running window). Stores the AUMI when known,
+    /// the process name as a fallback.
+    /// </summary>
+    public static DomainShortcut FromDiscoveredApp(DiscoveredApp app)
+    {
+        var launchKey = app.Aumi ?? app.ProcessName ?? app.ExecutablePath ?? app.DisplayName;
+        return new DomainShortcut
+        {
+            SourcePath = launchKey,
+            TargetPath = app.Aumi,
+            Type = DomainShortcutType.LiveApplication,
+            DisplayName = app.DisplayName,
+            IconPath = app.ExecutablePath
+        };
     }
 
     public string CreateGroupLauncherLink(DomainGroup group, string iconPath)

@@ -155,11 +155,13 @@ public sealed class GroupService
     {
         var groupPath = _paths.GetGroupPath(group.Id);
 
-        // Per-shortcut icons (only the ones missing — IconCacheService also dedup's by file existence).
+        // Per-shortcut icons. Always run the extraction pipeline so a stale
+        // 244-byte fallback PNG (left behind by an earlier broken build)
+        // gets replaced with a real icon. GetIconPathAsync itself caches
+        // and short-circuits when a real icon PNG already exists.
         foreach (var shortcut in group.Shortcuts)
         {
-            if (shortcut.IconPath is null || !File.Exists(shortcut.IconPath))
-                shortcut.IconPath = await _iconCache.GetIconPathAsync(shortcut, groupPath, ct);
+            shortcut.IconPath = await _iconCache.GetIconPathAsync(shortcut, groupPath, ct);
         }
 
         if (!group.IconCacheDirty && group.IconPath is not null && File.Exists(group.IconPath))

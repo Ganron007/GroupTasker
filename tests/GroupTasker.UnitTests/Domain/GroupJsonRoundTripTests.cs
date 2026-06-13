@@ -118,4 +118,27 @@ public class GroupJsonRoundTripTests
         var roundTrip = JsonSerializer.Deserialize<Group>(json, Options)!;
         Assert.Equal(original.CreatedAt, roundTrip.CreatedAt);
     }
+
+    [Fact]
+    public void LiveApplication_RoundTrips_AsStringAndInteger()
+    {
+        // New writes use the string form; legacy readers (and our own deserialiser)
+        // must still understand the integer ordinal if an old file pre-dates the
+        // string-enum upgrade and somehow contains a 5.
+        var group = new Group { Name = "Live" };
+        group.AddShortcut(new Shortcut
+        {
+            SourcePath = "Microsoft.WindowsCalculator_8wekyb3d8bbwe!App",
+            TargetPath = "Microsoft.WindowsCalculator_8wekyb3d8bbwe!App",
+            DisplayName = "Calculator",
+            Type = ShortcutType.LiveApplication
+        });
+
+        var json = JsonSerializer.Serialize(group, Options);
+        Assert.Contains("\"type\": \"LiveApplication\"", json);
+
+        var roundTrip = JsonSerializer.Deserialize<Group>(json, Options)!;
+        Assert.Equal(ShortcutType.LiveApplication, roundTrip.Shortcuts[0].Type);
+        Assert.Equal("Microsoft.WindowsCalculator_8wekyb3d8bbwe!App", roundTrip.Shortcuts[0].SourcePath);
+    }
 }

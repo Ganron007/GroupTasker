@@ -73,7 +73,15 @@ public partial class App : Avalonia.Application
         services.AddSingleton<IConfigPathProvider>(new ConfigPathProvider(exeDir));
         services.AddSingleton<IShellGateway, WindowsShellGateway>();
         services.AddSingleton<IconExtractor>();
-        services.AddSingleton<IIconCacheService, IconCacheService>();
+        services.AddSingleton<IAppActivator, WindowsAppActivator>();
+        services.AddSingleton<ILiveAppResolver, LiveAppResolver>();
+        services.AddSingleton<IStoreAppEnumerator, ShellAppsFolderEnumerator>();
+        services.AddSingleton<ITaskbarEnumerator>(sp => new TaskbarEnumerator(
+            sp.GetRequiredService<IAppActivator>(),
+            sp.GetRequiredService<IStoreAppEnumerator>()));
+        services.AddSingleton<IIconCacheService>(sp => new IconCacheService(
+            sp.GetRequiredService<IconExtractor>(),
+            sp.GetRequiredService<ILiveAppResolver>()));
 
         services.AddSingleton<IGroupRepository>(sp =>
             new JsonGroupRepository(
@@ -83,7 +91,9 @@ public partial class App : Avalonia.Application
         services.AddSingleton<IShortcutService>(sp => new WindowsShortcutService(
             sp.GetRequiredService<IconExtractor>(),
             sp.GetRequiredService<IConfigPathProvider>(),
-            exePath ?? Path.Combine(exeDir, "GroupTasker.App.exe")));
+            exePath ?? Path.Combine(exeDir, "GroupTasker.App.exe"),
+            sp.GetRequiredService<IAppActivator>(),
+            sp.GetRequiredService<ILiveAppResolver>()));
 
         services.AddSingleton<LauncherSettingsService>(sp =>
             new LauncherSettingsService(sp.GetRequiredService<IConfigPathProvider>(), LogError));

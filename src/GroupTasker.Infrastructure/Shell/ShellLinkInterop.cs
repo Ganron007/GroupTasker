@@ -39,10 +39,12 @@ public static class ShellLinkInterop
     }
 
     /// <summary>
-    /// Read a .lnk's target / arguments / working directory via <c>IShellLinkW</c>.
-    /// Replaces the old <c>dynamic</c>/WScript.Shell automation path.
+    /// Read a .lnk's target / arguments / working directory / icon location
+    /// via <c>IShellLinkW</c>. Replaces the old <c>dynamic</c>/WScript.Shell
+    /// automation path.
     /// </summary>
-    public static (string TargetPath, string Arguments, string WorkingDirectory) ReadShortcut(string lnkPath)
+    public static (string TargetPath, string Arguments, string WorkingDirectory, string IconLocation, int IconIndex)
+        ReadShortcut(string lnkPath)
     {
         var shortcut = (IShellLinkW)new CShellLink();
         var persist = (IPersistFile)shortcut;
@@ -57,7 +59,16 @@ public static class ShellLinkInterop
         var dirBuf = new StringBuilder(MAX_PATH);
         shortcut.GetWorkingDirectory(dirBuf, dirBuf.Capacity);
 
-        return (pathBuf.ToString(), argsBuf.ToString(), dirBuf.ToString());
+        var iconBuf = new StringBuilder(MAX_PATH);
+        int iconIndex = 0;
+        shortcut.GetIconLocation(iconBuf, iconBuf.Capacity, out iconIndex);
+
+        return (
+            pathBuf.ToString(),
+            argsBuf.ToString(),
+            dirBuf.ToString(),
+            iconBuf.ToString(),
+            iconIndex);
     }
 
     private const int MAX_PATH = 260;

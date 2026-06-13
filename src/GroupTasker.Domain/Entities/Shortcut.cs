@@ -19,7 +19,20 @@ public sealed class Shortcut
     public string? Arguments { get; set; }
     public string? WorkingDirectory { get; set; }
     public ShortcutType Type { get; set; } = ShortcutType.Unknown;
+
+    /// <summary>
+    /// Source location for icon extraction — the .ico file, .exe, or
+    /// the .lnk itself. This is separate from <see cref="IconPath"/>
+    /// which holds the cached PNG once extraction completes.
+    /// </summary>
+    public string? IconSourcePath { get; set; }
+
+    /// <summary>
+    /// Cached PNG path to the extracted icon, written under
+    /// {groupPath}/Icons/. This is what the launcher reads at runtime.
+    /// </summary>
     public string? IconPath { get; set; }
+
     public bool IsVisible { get; set; } = true;
     public int SortOrder { get; set; }
 }

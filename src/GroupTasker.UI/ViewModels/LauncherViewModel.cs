@@ -142,6 +142,8 @@ public partial class LauncherShortcutViewModel : ViewModelBase
     {
         get
         {
+            if (DomainShortcut.Type == ShortcutType.LiveApplication)
+                return $"{Name}\n(Live — auto-updating app)";
             if (!IsDead) return Name;
             var path = DomainShortcut.TargetPath ?? DomainShortcut.SourcePath;
             return $"Not found: {path}";
@@ -171,6 +173,7 @@ public partial class LauncherShortcutViewModel : ViewModelBase
         {
             ShortcutType.Folder => !Directory.Exists(path),
             ShortcutType.StoreApp => false,
+            ShortcutType.LiveApplication => false,
             _ => !File.Exists(path)
         };
     }

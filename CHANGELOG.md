@@ -7,6 +7,83 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 The canonical version lives in `Directory.Build.props` — bump `<VersionPrefix>`
 there and add a new section at the top of this file for each release.
 
+## [1.3.0] — 2026-06-13
+
+### Added
+
+- **Live / auto-updating app support** (`ShortcutType.LiveApplication`). A new
+  "⚡ Live" button in the configurator lets you add Microsoft Store / MSIX
+  apps (Claude Desktop, Codex, etc.) by their `AppUserModelId`. The AUMI is
+  stable across updates — Windows resolves it to the current `.exe` under
+  `C:\Program Files\WindowsApps\`, so the shortcut survives auto-updates that
+  change the version-folder name.
+- **Auto-discovery from `shell:AppsFolder`** — the picker shows every installed
+  Microsoft Store app (verified: 307 items on a typical install). Source
+  label in the picker is "⊞ Store" for these.
+- **`IAppActivator` (proper COM `IApplicationActivationManager` interop)**.
+  Replaces the broken `Type.InvokeMember` late-binding attempt that threw
+  "COM target does not implement IDispatch". Uses the correct IID
+  `2e941141-7f97-4756-ba1d-9decde894a3d` verified against `shobjidl_core.h`.
+- **`ILiveAppResolver`** — finds the current `.exe` for a stored AUMI by
+  preferring running processes under `C:\Program Files\WindowsApps\` over
+  AppData installs, then App Paths registry, then PATH. Also scans
+  `C:\Program Files\WindowsApps\` for the AUMI's family name when the app is
+  not running.
+- **Shell `.lnk` icon location extraction** via proper `IShellLinkW` COM
+  interop. `ShellLinkInterop.ReadShortcut` now returns the icon location
+  string (e.g. `C:\Users\Ganro\AppData\Local\Programs\Ollama\app.ico,0`), which
+  is stored in a new `Shortcut.IconSourcePath` field. The icon cache uses
+  this as the primary extraction source, so the proper colourful icon is
+  pulled for Ollama, Claude, Codex, etc. (which ship separate `.ico` files
+  rather than embedding icons in their `.exe`).
+- **`.ico` file support** in `IconExtractor` (uses `Icon.ExtractAssociatedIcon`
+  on the `.ico` directly).
+- **Live application launch path** (`WindowsShortcutService.LaunchLiveApplication`):
+  prefers AUMI activation via the proper COM interface, falls back to the
+  resolver's `.exe` path, then to a shell-execute last-ditch.
+- **Stale-fallback detection**: `IconCacheService` now treats PNGs smaller
+  than 300 bytes as stale fallbacks and re-extracts them on the next save.
+  Plus, `GroupService.BuildIconsIfDirtyAsync` always runs the extraction
+  pipeline (was skipping when an `IconPath` was set, which left 244-byte
+  fallbacks in place indefinitely).
+
+### Changed
+
+- **`WindowsShortcutService.ResolveLink`** now categorises empty-target `.lnk`
+  files (e.g. Ollama's installer creates shortcuts with no resolvable target
+  path in Shell COM) as `ShortcutType.Link` with the `.lnk` itself as the
+  launch target. Previously these were miscategorised as `StoreApp`, which
+  caused GroupTasker to launch `explorer.exe shell:appsFolder\` (empty AUMI)
+  — opening the user's Documents folder instead of the app.
+- **Launcher / ⚡ Live picker** UI: app rows now show a source label
+  ("📌 Taskbar" / "▶ Running" / "⊞ Store") and a search filter for the
+  300+ AppsFolder items.
+- **Icon cell background** in the launcher flyout was changed from
+  `Transparent` to `#2A2A2A` so missing icons show as visible dark
+  cells rather than invisible transparent holes.
+- **Self-contained release build** in addition to the existing
+  framework-dependent one. The self-contained zip bundles the .NET
+  runtime so the app runs on machines without .NET 9 installed
+  (≈100 MB vs ≈37 MB for the framework-dependent build).
+
+### Fixed
+
+- **Launch via AUMI for Microsoft Store apps** — `IApplicationActivationManager`
+  is a pure IUnknown COM interface, not IDispatch. The previous
+  `Type.InvokeMember` call failed silently at runtime; the fix uses proper
+  COM interop with the correct IID.
+- **Auto-update survival**: storing the AUMI instead of the `.exe` path
+  means the shortcut keeps working when the app version-folder changes
+  (verified: Codex 26.609.3341.0 → 26.609.4994.0 auto-updated during
+  testing and the existing AUMI shortcut kept working).
+- **Ollama launch bug**: empty-target `.lnk` files now launch via
+  `UseShellExecute = true`, which lets Windows resolve the shortcut
+  normally.
+- **Missing icons for app `.lnk` shortcuts** (Ollama `app.ico`,
+  Claude, Codex). The `IconExtractor` now reads the `IconLocation` from
+  the `.lnk` metadata (a separate `.ico` file for many installers) instead
+  of always extracting from the resolved `.exe`.
+
 ## [1.2.0] — 2026-05-30
 
 ### Added

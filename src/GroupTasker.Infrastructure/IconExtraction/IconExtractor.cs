@@ -25,6 +25,7 @@ public sealed class IconExtractor
             {
                 ".lnk" => ExtractFromLink(sourcePath),
                 ".exe" => ExtractFromExe(sourcePath),
+                ".ico" => ExtractFromIco(sourcePath),
                 _ when IsStoreApp(sourcePath) => ExtractFromStoreApp(sourcePath),
                 _ when Directory.Exists(sourcePath) => ExtractFromFolder(sourcePath),
                 _ => ExtractFromExe(sourcePath)
@@ -36,12 +37,41 @@ public sealed class IconExtractor
         }
     }
 
+    private static Bitmap ExtractFromIco(string filePath)
+    {
+        try
+        {
+            // .ico files contain multiple icons; Icon.ExtractAssociatedIcon
+            // returns the largest one. This is what Windows itself uses
+            // when rendering the .ico for the Start Menu / taskbar.
+            using var icon = Icon.ExtractAssociatedIcon(filePath);
+            return icon?.ToBitmap() ?? SafeExtract(filePath);
+        }
+        catch
+        {
+            return SafeExtract(filePath);
+        }
+    }
+
     private Bitmap ExtractFromLink(string filePath)
     {
         try
         {
             // Use typed IShellLinkW via ShellLinkInterop rather than late-bound WScript.Shell.
-            var (target, _, _) = Shell.ShellLinkInterop.ReadShortcut(filePath);
+            var (target, _, _, iconLocation, _) = Shell.ShellLinkInterop.ReadShortcut(filePath);
+
+            // If the .lnk has a custom icon location (.ico file or .exe with
+            // a specific index), honour it. This is how installers like
+            // Ollama, Claude, and Codex get their colourful icons.
+            if (!string.IsNullOrEmpty(iconLocation))
+            {
+                var commaIdx = iconLocation.LastIndexOf(',');
+                var iconPath = commaIdx > 0 ? iconLocation[..commaIdx] : iconLocation;
+                if (File.Exists(iconPath))
+                {
+                    return ExtractIcon(iconPath);
+                }
+            }
 
             if (!string.IsNullOrEmpty(target))
             {

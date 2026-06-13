@@ -15,6 +15,7 @@ public class ShortcutTypeTests
         Assert.Equal(2, (int)ShortcutType.Folder);
         Assert.Equal(3, (int)ShortcutType.StoreApp);
         Assert.Equal(4, (int)ShortcutType.Unknown);
+        Assert.Equal(5, (int)ShortcutType.LiveApplication);
     }
 
     [Fact]

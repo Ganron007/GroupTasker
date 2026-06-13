@@ -23,5 +23,12 @@ public enum ShortcutType
     Link = 1,
     Folder = 2,
     StoreApp = 3,
-    Unknown = 4
+    Unknown = 4,
+    /// <summary>
+    /// Auto-updating or "live" app launched by AppUserModelId or process name
+    /// rather than a static .exe path. The shortcut's <c>SourcePath</c> stores
+    /// the AUMI (preferred) or process name; <c>TargetPath</c> is re-resolved at
+    /// launch time so the app version can change without breaking the shortcut.
+    /// </summary>
+    LiveApplication = 5
 }
