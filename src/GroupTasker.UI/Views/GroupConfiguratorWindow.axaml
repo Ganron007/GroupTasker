@@ -36,9 +36,11 @@
                 <TextBlock Text="Shortcuts" FontSize="12" Foreground="#8F8F8F" VerticalAlignment="Center" />
                 <Button Content="+ Add" Command="{Binding AddShortcutCommand}"
                         Classes="Secondary"
+                        AutomationProperties.Name="Add shortcut"
                         HorizontalAlignment="Right" Margin="12,0,0,0" />
                 <Button Content="⚡ Live" Command="{Binding AddRunningAppCommand}"
                         Classes="Secondary"
+                        AutomationProperties.Name="Add live app (auto-updating Microsoft Store app)"
                         ToolTip.Tip="Add an auto-updating app (Claude Desktop, Codex, etc.) by process name or taskbar pin"
                         HorizontalAlignment="Right" Margin="8,0,0,0" />
             </StackPanel>
@@ -71,12 +73,14 @@
                                         <Button Content="▲"
                                                 Command="{Binding $parent[ItemsControl].DataContext.MoveUpCommand}"
                                                 CommandParameter="{Binding}"
+                                                AutomationProperties.Name="Move up"
                                                 Classes="Reorder"
                                                 Width="24" Height="20"
                                                 FontSize="10" />
                                         <Button Content="▼"
                                                 Command="{Binding $parent[ItemsControl].DataContext.MoveDownCommand}"
                                                 CommandParameter="{Binding}"
+                                                AutomationProperties.Name="Move down"
                                                 Classes="Reorder"
                                                 Width="24" Height="20"
                                                 FontSize="10" />
@@ -84,6 +88,7 @@
                                     <Button Grid.Column="3" Content="✕"
                                             Command="{Binding $parent[ItemsControl].DataContext.RemoveShortcutCommand}"
                                             CommandParameter="{Binding}"
+                                            AutomationProperties.Name="Remove shortcut"
                                             Classes="Danger"
                                             Width="32" Height="32"
                                             VerticalAlignment="Center" />

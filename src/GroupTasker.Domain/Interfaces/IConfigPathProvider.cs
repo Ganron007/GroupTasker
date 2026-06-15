@@ -7,12 +7,12 @@ namespace GroupTasker.Domain.Interfaces;
 /// </summary>
 public interface IConfigPathProvider
 {
-    /// <summary>Root config directory (e.g. <c>{exeDir}\config</c>).</summary>
+    /// <summary>Root config directory (portable: <c>{exeDir}\config</c>; installed: <c>%LocalAppData%\GroupTasker\config</c>).</summary>
     string ConfigRoot { get; }
 
     /// <summary>Folder containing this group's icon and JSON (<c>{ConfigRoot}\groups\{id-N}</c>).</summary>
     string GetGroupPath(Guid groupId);
 
-    /// <summary>Folder where pinnable .lnk files are emitted (<c>{exeDir}\shortcut</c>).</summary>
+    /// <summary>Folder where pinnable .lnk files are emitted (portable: <c>{exeDir}\shortcut</c>; installed: <c>%LocalAppData%\GroupTasker\shortcut</c>).</summary>
     string ShortcutFolder { get; }
 }

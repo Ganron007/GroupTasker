@@ -1,4 +1,5 @@
 using GroupTasker.Application.Services;
+using GroupTasker.Domain.Logging;
 using GroupTasker.Domain.ValueObjects;
 
 namespace GroupTasker.UnitTests.Application;
@@ -17,7 +18,7 @@ public class GroupServiceTests : IDisposable
         _root = Path.Combine(Path.GetTempPath(), $"gt-tests-{Guid.NewGuid():N}");
         Directory.CreateDirectory(_root);
         var paths = new FakeConfigPathProvider(_root);
-        _svc = new GroupService(_repo, _iconCache, _shortcutSvc, paths, _shell);
+        _svc = new GroupService(_repo, _iconCache, _shortcutSvc, paths, _shell, NullLogger.Instance);
     }
 
     public void Dispose()

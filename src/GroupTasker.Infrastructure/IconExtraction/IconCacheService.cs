@@ -2,6 +2,7 @@ using System.Drawing;
 using System.Drawing.Imaging;
 using GroupTasker.Domain.Entities;
 using GroupTasker.Domain.Interfaces;
+using GroupTasker.Domain.Logging;
 using DomainGroup = GroupTasker.Domain.Entities.Group;
 using DomainShortcut = GroupTasker.Domain.Entities.Shortcut;
 
@@ -17,6 +18,7 @@ public sealed class IconCacheService : IIconCacheService
 {
     private readonly IconExtractor _extractor;
     private readonly ILiveAppResolver? _liveResolver;
+    private readonly ILogger _logger;
 
     /// <summary>
     /// The minimum size (in bytes) of a real icon PNG. The fallback gray
@@ -27,10 +29,11 @@ public sealed class IconCacheService : IIconCacheService
     /// </summary>
     private const int FallbackSizeBytes = 300;
 
-    public IconCacheService(IconExtractor extractor, ILiveAppResolver? liveResolver = null)
+    public IconCacheService(IconExtractor extractor, ILiveAppResolver? liveResolver = null, ILogger? logger = null)
     {
         _extractor = extractor;
         _liveResolver = liveResolver;
+        _logger = logger ?? NullLogger.Instance;
     }
 
     public async Task<string> GetIconPathAsync(DomainShortcut shortcut, string groupPath, CancellationToken ct = default)
@@ -67,8 +70,9 @@ public sealed class IconCacheService : IIconCacheService
                 using var resized = IconFactory.ResizeImage(bitmap, 64, 64);
                 SaveAtomic(resized, iconPath);
             }
-            catch
+            catch (Exception ex)
             {
+                _logger.Error(ex, "Failed to extract icon for shortcut {ShortcutId} from {SourcePath}", shortcut.Id, sourcePath);
                 SaveFallback(iconPath);
             }
         }, ct).ConfigureAwait(false);
@@ -99,8 +103,9 @@ public sealed class IconCacheService : IIconCacheService
                     File.WriteAllBytes(iconPath + ".tmp", ms.ToArray());
                     File.Move(iconPath + ".tmp", iconPath, overwrite: true);
                 }
-                catch
+                catch (Exception ex)
                 {
+                    _logger.Error(ex, "Failed to build composite icon for group {GroupId} ({GroupName}); using solid fallback", group.Id, group.Name);
                     // Fallback: solid-fill icon so the .lnk has *something* on disk.
                     foreach (var bmp in bitmaps) bmp.Dispose();
                     bitmaps.Clear();
@@ -123,8 +128,9 @@ public sealed class IconCacheService : IIconCacheService
                     foreach (var bmp in bitmaps) bmp.Dispose();
                 }
             }
-            catch
+            catch (Exception ex)
             {
+                _logger.Error(ex, "Fatal failure building group icon for {GroupId} ({GroupName})", group.Id, group.Name);
             }
         }, ct).ConfigureAwait(false);
 
@@ -214,8 +220,9 @@ public sealed class IconCacheService : IIconCacheService
                 using var src = LoadCachedOrExtract(shortcut);
                 g.DrawImage(src, x, y, sqSize, sqSize);
             }
-            catch
+            catch (Exception ex)
             {
+                _logger.Error(ex, "Failed to render shortcut {ShortcutId} icon into composite for group {GroupId}", shortcut.Id, group.Id);
                 using var brush = new SolidBrush(Color.FromArgb(90, 90, 90));
                 g.FillRectangle(brush, x, y, sqSize, sqSize);
             }

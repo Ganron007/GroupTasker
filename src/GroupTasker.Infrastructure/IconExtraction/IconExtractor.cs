@@ -136,8 +136,7 @@ public sealed class IconExtractor
             if (string.IsNullOrEmpty(appPath) || !File.Exists(Path.Combine(appPath, "AppxManifest.xml")))
                 return SafeExtract(appId);
 
-            var manifest = new XmlDocument();
-            manifest.Load(Path.Combine(appPath, "AppxManifest.xml"));
+            var manifest = LoadManifestSafe(Path.Combine(appPath, "AppxManifest.xml"));
 
             var nsmgr = new XmlNamespaceManager(new NameTable());
             nsmgr.AddNamespace("sm", "http://schemas.microsoft.com/appx/manifest/foundation/windows10");
@@ -178,8 +177,7 @@ public sealed class IconExtractor
 
             if (string.IsNullOrEmpty(appPath)) return subAppName;
 
-            var manifest = new XmlDocument();
-            manifest.Load(Path.Combine(appPath, "AppxManifest.xml"));
+            var manifest = LoadManifestSafe(Path.Combine(appPath, "AppxManifest.xml"));
 
             var nsmgr = new XmlNamespaceManager(new NameTable());
             nsmgr.AddNamespace("sm", "http://schemas.microsoft.com/appx/manifest/foundation/windows10");
@@ -197,6 +195,15 @@ public sealed class IconExtractor
         {
             return appId;
         }
+    }
+
+    private static XmlDocument LoadManifestSafe(string path)
+    {
+        var settings = new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit };
+        using var reader = XmlReader.Create(path, settings);
+        var doc = new XmlDocument { XmlResolver = null };
+        doc.Load(reader);
+        return doc;
     }
 
     private static Bitmap SafeExtract(string _)

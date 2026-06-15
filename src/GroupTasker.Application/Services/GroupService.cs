@@ -1,6 +1,7 @@
 using System.Linq;
 using GroupTasker.Domain.Entities;
 using GroupTasker.Domain.Interfaces;
+using GroupTasker.Domain.Logging;
 using GroupTasker.Domain.ValueObjects;
 
 namespace GroupTasker.Application.Services;
@@ -17,19 +18,22 @@ public sealed class GroupService
     private readonly IShortcutService _shortcutService;
     private readonly IConfigPathProvider _paths;
     private readonly IShellGateway _shell;
+    private readonly ILogger _logger;
 
     public GroupService(
         IGroupRepository repository,
         IIconCacheService iconCache,
         IShortcutService shortcutService,
         IConfigPathProvider paths,
-        IShellGateway shell)
+        IShellGateway shell,
+        ILogger? logger = null)
     {
         _repository = repository;
         _iconCache = iconCache;
         _shortcutService = shortcutService;
         _paths = paths;
         _shell = shell;
+        _logger = logger ?? NullLogger.Instance;
     }
 
     public Task<IReadOnlyList<Group>> GetAllGroupsAsync(CancellationToken ct = default)
@@ -50,6 +54,7 @@ public sealed class GroupService
 
         await BuildIconsIfDirtyAsync(group, ct);
         await _repository.SaveAsync(group, ct);
+        _logger.Information("Created group {GroupId} with name {GroupName} and {ShortcutCount} shortcuts", group.Id, group.Name, group.Shortcuts.Count);
         return group;
     }
 
@@ -63,6 +68,7 @@ public sealed class GroupService
             Directory.Delete(groupPath, recursive: true);
 
         await _repository.DeleteAsync(id, ct);
+        _logger.Information("Deleted group {GroupId} ({GroupName})", group.Id, group.Name);
     }
 
     public async Task AddShortcutAsync(Guid groupId, string sourcePath, CancellationToken ct = default)
@@ -77,6 +83,7 @@ public sealed class GroupService
         resolved.IconPath = await _iconCache.GetIconPathAsync(resolved, groupPath, ct);
 
         await _repository.SaveAsync(group, ct);
+        _logger.Information("Added shortcut {SourcePath} to group {GroupId} ({GroupName})", resolved.SourcePath, group.Id, group.Name);
     }
 
     public async Task RemoveShortcutAsync(Guid groupId, Guid shortcutId, CancellationToken ct = default)
@@ -141,12 +148,13 @@ public sealed class GroupService
             if (shortcutDir is not null)
                 _shell.RevealInFileManager(shortcutDir);
 
-            return new PinResult(
-                pinned ? PinOutcome.Pinned : PinOutcome.ShortcutCreatedManualPinRequired,
-                launcherLinkPath);
+            var outcome = pinned ? PinOutcome.Pinned : PinOutcome.ShortcutCreatedManualPinRequired;
+            _logger.Information("Pinned group {GroupId} ({GroupName}): {Outcome}", group.Id, group.Name, outcome);
+            return new PinResult(outcome, launcherLinkPath);
         }
         catch (Exception ex)
         {
+            _logger.Error(ex, "Failed to pin group {GroupId} ({GroupName}) to taskbar", group.Id, group.Name);
             return new PinResult(PinOutcome.Failed, string.Empty, ex.Message);
         }
     }

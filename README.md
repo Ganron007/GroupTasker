@@ -1,5 +1,7 @@
 # GroupTasker
 
+[![CI](https://github.com/Ganron007/GroupTasker/actions/workflows/ci.yml/badge.svg)](https://github.com/Ganron007/GroupTasker/actions/workflows/ci.yml)
+
 A Windows taskbar group launcher — pin app groups to your taskbar and launch multiple shortcuts from a single icon flyout.
 
 ## Features

@@ -1,6 +1,6 @@
 using System;
-using System.Diagnostics;
 using System.IO;
+using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
@@ -11,6 +11,7 @@ using GroupTasker.Domain.Interfaces;
 using GroupTasker.Infrastructure.Configuration;
 using GroupTasker.Infrastructure.Data;
 using GroupTasker.Infrastructure.IconExtraction;
+using GroupTasker.Infrastructure.Logging;
 using GroupTasker.Infrastructure.Shell;
 using GroupTasker.UI.ViewModels;
 using GroupTasker.UI.Views;
@@ -37,6 +38,20 @@ public partial class App : Avalonia.Application
     {
         _provider = BuildServiceProvider();
         Services = _provider;
+
+        var crashLogger = _provider.GetRequiredService<ILogger>();
+        AppDomain.CurrentDomain.UnhandledException += (_, e) =>
+        {
+            if (e.ExceptionObject is Exception ex)
+                crashLogger.Error(ex, "Unhandled AppDomain exception — application terminating");
+            else
+                crashLogger.Error("Unhandled AppDomain exception (non-Exception object of type {ObjectType})", e.ExceptionObject?.GetType().Name ?? "null");
+        };
+        TaskScheduler.UnobservedTaskException += (_, e) =>
+        {
+            crashLogger.Error(e.Exception, "Unobserved task exception");
+            e.SetObserved();
+        };
 
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
@@ -70,6 +85,10 @@ public partial class App : Avalonia.Application
             ? Path.GetDirectoryName(exePath)!
             : AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar);
 
+        var logger = SerilogBootstrap.CreateLogger();
+        services.AddSingleton<ILogger>(logger);
+        logger.Information("GroupTasker starting up");
+
         services.AddSingleton<IConfigPathProvider>(new ConfigPathProvider(exeDir));
         services.AddSingleton<IShellGateway, WindowsShellGateway>();
         services.AddSingleton<IconExtractor>();
@@ -81,24 +100,34 @@ public partial class App : Avalonia.Application
             sp.GetRequiredService<IStoreAppEnumerator>()));
         services.AddSingleton<IIconCacheService>(sp => new IconCacheService(
             sp.GetRequiredService<IconExtractor>(),
-            sp.GetRequiredService<ILiveAppResolver>()));
+            sp.GetRequiredService<ILiveAppResolver>(),
+            sp.GetRequiredService<ILogger>()));
 
         services.AddSingleton<IGroupRepository>(sp =>
             new JsonGroupRepository(
                 sp.GetRequiredService<IConfigPathProvider>(),
-                onError: LogError));
+                sp.GetRequiredService<ILogger>()));
 
         services.AddSingleton<IShortcutService>(sp => new WindowsShortcutService(
             sp.GetRequiredService<IconExtractor>(),
             sp.GetRequiredService<IConfigPathProvider>(),
             exePath ?? Path.Combine(exeDir, "GroupTasker.App.exe"),
             sp.GetRequiredService<IAppActivator>(),
-            sp.GetRequiredService<ILiveAppResolver>()));
+            sp.GetRequiredService<ILiveAppResolver>(),
+            sp.GetRequiredService<ILogger>()));
 
         services.AddSingleton<LauncherSettingsService>(sp =>
-            new LauncherSettingsService(sp.GetRequiredService<IConfigPathProvider>(), LogError));
+            new LauncherSettingsService(
+                sp.GetRequiredService<IConfigPathProvider>(),
+                sp.GetRequiredService<ILogger>()));
 
-        services.AddSingleton<GroupService>();
+        services.AddSingleton<GroupService>(sp => new GroupService(
+            sp.GetRequiredService<IGroupRepository>(),
+            sp.GetRequiredService<IIconCacheService>(),
+            sp.GetRequiredService<IShortcutService>(),
+            sp.GetRequiredService<IConfigPathProvider>(),
+            sp.GetRequiredService<IShellGateway>(),
+            sp.GetRequiredService<ILogger>()));
 
         // VMs are constructor-injected so production code never needs to reach into
         // App.Services. The string-arg LauncherViewModel uses a delegate-factory so
@@ -113,9 +142,6 @@ public partial class App : Avalonia.Application
 
         return services.BuildServiceProvider();
     }
-
-    private static void LogError(string message, Exception ex) =>
-        Debug.WriteLine($"[GroupTasker] {message}: {ex}");
 
     private void HandleConfiguratorMode(IClassicDesktopStyleApplicationLifetime desktop, IServiceProvider provider)
     {
@@ -133,7 +159,8 @@ public partial class App : Avalonia.Application
         string groupName,
         IServiceProvider provider)
     {
-        if (SingleInstanceService.TryActivate(groupName))
+        var logger = provider.GetRequiredService<ILogger>();
+        if (SingleInstanceService.TryActivate(groupName, logger))
         {
             Environment.Exit(0);
             return;
@@ -142,7 +169,7 @@ public partial class App : Avalonia.Application
         desktop.ShutdownMode = ShutdownMode.OnExplicitShutdown;
 
         _settingsService = provider.GetRequiredService<LauncherSettingsService>();
-        _singleInstance = new SingleInstanceService();
+        _singleInstance = new SingleInstanceService(logger);
         _singleInstance.OnShowGroup += n => ShowFlyout(n, provider);
         _singleInstance.Start();
 

@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 9
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Restore
+        run: dotnet restore GroupTasker.sln
+
+      - name: Build
+        run: dotnet build GroupTasker.sln --configuration Release --no-restore
+
+      - name: Test
+        run: dotnet test GroupTasker.sln --configuration Release --no-build --verbosity normal
+
+      - name: Publish self-contained (smoke)
+        run: |
+          dotnet publish src/GroupTasker.UI/GroupTasker.UI.csproj `
+            --configuration Release `
+            --runtime win-x64 `
+            --self-contained true `
+            --no-restore `
+            -o ./publish/self-contained
+          dotnet publish src/GroupTasker.Launcher/GroupTasker.Launcher.csproj `
+            --configuration Release `
+            --no-restore `
+            -o ./publish/self-contained
+
+      - name: Verify launcher shim exists
+        run: |
+          if (-not (Test-Path ./publish/self-contained/GroupTasker.exe)) { throw "Launcher shim not found" }
+          if (-not (Test-Path ./publish/self-contained/GroupTasker.App.exe)) { throw "Main app not found" }

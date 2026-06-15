@@ -1,0 +1,76 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  publish:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 9
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Restore
+        run: dotnet restore GroupTasker.sln
+
+      - name: Build
+        run: dotnet build GroupTasker.sln --configuration Release --no-restore
+
+      - name: Test
+        run: dotnet test GroupTasker.sln --configuration Release --no-build --verbosity normal
+
+      - name: Publish self-contained
+        run: |
+          dotnet publish src/GroupTasker.UI/GroupTasker.UI.csproj `
+            --configuration Release `
+            --runtime win-x64 `
+            --self-contained true `
+            --no-restore `
+            --no-build `
+            -o ./publish/GroupTasker-self-contained
+          dotnet publish src/GroupTasker.Launcher/GroupTasker.Launcher.csproj `
+            --configuration Release `
+            --no-restore `
+            --no-build `
+            -o ./publish/GroupTasker-self-contained
+
+      - name: Publish framework-dependent
+        run: |
+          dotnet publish src/GroupTasker.UI/GroupTasker.UI.csproj `
+            --configuration Release `
+            --runtime win-x64 `
+            --no-self-contained `
+            --no-restore `
+            --no-build `
+            -o ./publish/GroupTasker-fxdep
+          dotnet publish src/GroupTasker.Launcher/GroupTasker.Launcher.csproj `
+            --configuration Release `
+            --no-restore `
+            --no-build `
+            -o ./publish/GroupTasker-fxdep
+
+      - name: Package zips
+        run: |
+          $tag = "${{ github.ref_name }}"
+          Compress-Archive -Path ./publish/GroupTasker-self-contained/* -DestinationPath "./publish/GroupTasker-$tag-win-x64.zip" -Force
+          Compress-Archive -Path ./publish/GroupTasker-fxdep/* -DestinationPath "./publish/GroupTasker-$tag-fxdep-win-x64.zip" -Force
+
+      - name: Upload self-contained artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: GroupTasker-${{ github.ref_name }}-win-x64
+          path: ./publish/GroupTasker-${{ github.ref_name }}-win-x64.zip
+
+      - name: Upload framework-dependent artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: GroupTasker-${{ github.ref_name }}-fxdep-win-x64
+          path: ./publish/GroupTasker-${{ github.ref_name }}-fxdep-win-x64.zip

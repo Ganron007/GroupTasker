@@ -44,6 +44,8 @@
                             <Border Width="40" Height="40" Margin="2"
                                     Opacity="{Binding IconOpacity}"
                                     Cursor="Hand"
+                                    Focusable="True"
+                                    AutomationProperties.Name="{Binding TooltipText}"
                                     ToolTip.Tip="{Binding TooltipText}"
                                     Classes="ShortcutIcon"
                                     PointerPressed="OnShortcutPressed"
@@ -73,6 +75,10 @@
         </Style>
         <Style Selector="Border.ShortcutIcon:pointerover">
             <Setter Property="Background" Value="#3A3A3A" />
+        </Style>
+        <Style Selector="Border.ShortcutIcon:focus">
+            <Setter Property="BorderBrush" Value="#4A9EFF" />
+            <Setter Property="BorderThickness" Value="2" />
         </Style>
     </Window.Styles>
 </Window>

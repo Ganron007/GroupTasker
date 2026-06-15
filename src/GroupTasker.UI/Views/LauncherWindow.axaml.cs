@@ -26,6 +26,77 @@ public partial class LauncherWindow : Window
     {
         InitializeComponent();
         Deactivated += OnDeactivated;
+        KeyDown += OnKeyDown;
+        Opened += OnOpened;
+    }
+
+    private void OnOpened(object? sender, EventArgs e)
+    {
+        Dispatcher.UIThread.Post(() => FocusShortcutAt(0), DispatcherPriority.Input);
+    }
+
+    private void OnKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Escape)
+        {
+            Close();
+            e.Handled = true;
+            return;
+        }
+
+        var count = ShortcutsItemsControl.Items.Count;
+        if (count == 0) return;
+
+        var current = GetFocusedShortcutIndex();
+        if (current < 0) current = 0;
+
+        int target = current;
+        switch (e.Key)
+        {
+            case Key.Right: target = Math.Min(current + 1, count - 1); break;
+            case Key.Left:  target = Math.Max(current - 1, 0); break;
+            case Key.Down:  target = Math.Min(current + Columns, count - 1); break;
+            case Key.Up:    target = Math.Max(current - Columns, 0); break;
+            case Key.Enter:
+            case Key.Space:
+                LaunchShortcutAt(current);
+                e.Handled = true;
+                return;
+        }
+
+        if (target != current)
+        {
+            FocusShortcutAt(target);
+            e.Handled = true;
+        }
+    }
+
+    private const int Columns = 7;
+
+    private int GetFocusedShortcutIndex()
+    {
+        for (var i = 0; i < ShortcutsItemsControl.Items.Count; i++)
+        {
+            if (ShortcutsItemsControl.ContainerFromIndex(i) is ContentPresenter cp
+                && cp.Child is Border b
+                && b.IsFocused)
+                return i;
+        }
+        return -1;
+    }
+
+    private void FocusShortcutAt(int index)
+    {
+        if (ShortcutsItemsControl.ContainerFromIndex(index) is ContentPresenter cp
+            && cp.Child is Border b)
+            b.Focus();
+    }
+
+    private void LaunchShortcutAt(int index)
+    {
+        if (index < 0 || index >= ShortcutsItemsControl.Items.Count) return;
+        if (ShortcutsItemsControl.Items[index] is LauncherShortcutViewModel vm)
+            vm.LaunchCommand.Execute(null);
     }
 
     private void OnDeactivated(object? sender, EventArgs e)

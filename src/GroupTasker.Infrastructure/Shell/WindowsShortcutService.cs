@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 using GroupTasker.Domain;
 using GroupTasker.Domain.Interfaces;
+using GroupTasker.Domain.Logging;
 using GroupTasker.Infrastructure.IconExtraction;
 using DomainGroup = GroupTasker.Domain.Entities.Group;
 using DomainShortcut = GroupTasker.Domain.Entities.Shortcut;
@@ -21,19 +22,22 @@ public sealed class WindowsShortcutService : IShortcutService
     private readonly string _exePath;
     private readonly IAppActivator _activator;
     private readonly ILiveAppResolver _liveResolver;
+    private readonly ILogger _logger;
 
     public WindowsShortcutService(
         IconExtractor extractor,
         IConfigPathProvider paths,
         string exePath,
         IAppActivator? activator = null,
-        ILiveAppResolver? liveResolver = null)
+        ILiveAppResolver? liveResolver = null,
+        ILogger? logger = null)
     {
         _extractor = extractor;
         _paths = paths;
         _exePath = exePath;
         _activator = activator ?? new WindowsAppActivator();
         _liveResolver = liveResolver ?? new LiveAppResolver();
+        _logger = logger ?? NullLogger.Instance;
     }
 
     public DomainShortcut Resolve(string sourcePath)
@@ -75,8 +79,9 @@ public sealed class WindowsShortcutService : IShortcutService
                     break;
             }
         }
-        catch
+        catch (Exception ex)
         {
+            _logger.Error(ex, "Failed to resolve shortcut {SourcePath}", sourcePath);
             shortcut.Type = DomainShortcutType.Unknown;
             shortcut.DisplayName = Path.GetFileNameWithoutExtension(sourcePath);
         }
@@ -84,7 +89,7 @@ public sealed class WindowsShortcutService : IShortcutService
         return shortcut;
     }
 
-    private static DomainShortcut ResolveLink(DomainShortcut shortcut, string lnkPath)
+    private DomainShortcut ResolveLink(DomainShortcut shortcut, string lnkPath)
     {
         try
         {
@@ -144,8 +149,9 @@ public sealed class WindowsShortcutService : IShortcutService
 
             return shortcut;
         }
-        catch
+        catch (Exception ex)
         {
+            _logger.Error(ex, "Failed to resolve .lnk {LinkPath}", lnkPath);
             shortcut.Type = DomainShortcutType.Unknown;
             shortcut.DisplayName = Path.GetFileNameWithoutExtension(lnkPath);
             return shortcut;
@@ -155,6 +161,7 @@ public sealed class WindowsShortcutService : IShortcutService
     public void Launch(DomainShortcut shortcut)
     {
         var target = shortcut.TargetPath ?? shortcut.SourcePath;
+        _logger.Information("Launching shortcut {ShortcutName} ({ShortcutType}) from {Target}", shortcut.DisplayName, shortcut.Type, target);
 
         switch (shortcut.Type)
         {
@@ -302,8 +309,9 @@ public sealed class WindowsShortcutService : IShortcutService
                 }
             }
         }
-        catch
+        catch (Exception ex)
         {
+            _logger.Error(ex, "Taskbar pinning failed for {LauncherPath}", launcherPath);
             // Taskbar pinning not available or failed — caller decides what to tell the user.
         }
         finally

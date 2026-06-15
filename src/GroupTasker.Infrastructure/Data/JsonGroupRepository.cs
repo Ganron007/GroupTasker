@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using GroupTasker.Domain.Entities;
 using GroupTasker.Domain.Interfaces;
+using GroupTasker.Domain.Logging;
 
 namespace GroupTasker.Infrastructure.Data;
 
@@ -25,14 +26,14 @@ public sealed class JsonGroupRepository : IGroupRepository
     };
 
     private readonly IConfigPathProvider _paths;
-    private readonly Action<string, Exception>? _onError;
+    private readonly ILogger _logger;
     private readonly Dictionary<Guid, SemaphoreSlim> _writeLocks = new();
     private readonly object _writeLocksGate = new();
 
-    public JsonGroupRepository(IConfigPathProvider paths, Action<string, Exception>? onError = null)
+    public JsonGroupRepository(IConfigPathProvider paths, ILogger? logger = null)
     {
         _paths = paths;
-        _onError = onError;
+        _logger = logger ?? NullLogger.Instance;
     }
 
     public async Task<IReadOnlyList<Group>> GetAllAsync(CancellationToken ct = default)
@@ -96,7 +97,7 @@ public sealed class JsonGroupRepository : IGroupRepository
         }
         catch (Exception ex)
         {
-            _onError?.Invoke($"Failed to delete group {id}", ex);
+            _logger.Error(ex, "Failed to delete group {GroupId}", id);
             return Task.FromResult(false);
         }
     }
@@ -112,7 +113,7 @@ public sealed class JsonGroupRepository : IGroupRepository
         catch (OperationCanceledException) { throw; }
         catch (Exception ex)
         {
-            _onError?.Invoke($"Failed to read group from {file}", ex);
+            _logger.Error(ex, "Failed to read group from {FilePath}", file);
             return null;
         }
     }

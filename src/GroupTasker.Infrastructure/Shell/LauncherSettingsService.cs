@@ -1,5 +1,6 @@
 using System.Text.Json;
 using GroupTasker.Domain.Interfaces;
+using GroupTasker.Domain.Logging;
 using GroupTasker.Infrastructure.Configuration;
 
 namespace GroupTasker.Infrastructure.Shell;
@@ -13,13 +14,13 @@ public sealed class LauncherSettingsService
     };
 
     private readonly string _filePath;
-    private readonly Action<string, Exception>? _onError;
+    private readonly ILogger _logger;
     private readonly object _writeLock = new();
 
-    public LauncherSettingsService(IConfigPathProvider paths, Action<string, Exception>? onError = null)
+    public LauncherSettingsService(IConfigPathProvider paths, ILogger? logger = null)
     {
         _filePath = Path.Combine(paths.ConfigRoot, "launcher.json");
-        _onError = onError;
+        _logger = logger ?? NullLogger.Instance;
     }
 
     public string FilePath => _filePath;
@@ -37,7 +38,7 @@ public sealed class LauncherSettingsService
         }
         catch (Exception ex)
         {
-            _onError?.Invoke($"Failed to read launcher settings from {_filePath}", ex);
+            _logger.Error(ex, "Failed to read launcher settings from {FilePath}", _filePath);
         }
 
         return new LauncherSettings();
@@ -62,7 +63,7 @@ public sealed class LauncherSettingsService
         }
         catch (Exception ex)
         {
-            _onError?.Invoke($"Failed to save launcher settings to {_filePath}", ex);
+            _logger.Error(ex, "Failed to save launcher settings to {FilePath}", _filePath);
         }
     }
 }

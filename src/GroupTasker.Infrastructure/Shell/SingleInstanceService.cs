@@ -1,5 +1,7 @@
 using System.IO.Pipes;
 using System.Text;
+using GroupTasker.Domain.Interfaces;
+using GroupTasker.Domain.Logging;
 
 namespace GroupTasker.Infrastructure.Shell;
 
@@ -14,13 +16,22 @@ namespace GroupTasker.Infrastructure.Shell;
 /// </summary>
 public sealed class SingleInstanceService : IAsyncDisposable, IDisposable
 {
-    private const string PipeName = "GroupTasker-Launcher";
+    private static readonly string PipeName = "GroupTasker-Launcher-" + UserSuffix;
     private const int MaxPayloadBytes = 4 * 1024;
 
+    private static readonly string UserSuffix =
+        System.Security.Principal.WindowsIdentity.GetCurrent().User?.Value ?? "anon";
+
     private readonly CancellationTokenSource _cts = new();
+    private readonly ILogger _logger;
     private Task? _listenerTask;
 
     public event Action<string>? OnShowGroup;
+
+    public SingleInstanceService(ILogger? logger = null)
+    {
+        _logger = logger ?? NullLogger.Instance;
+    }
 
     public void Start()
     {
@@ -48,9 +59,9 @@ public sealed class SingleInstanceService : IAsyncDisposable, IDisposable
             {
                 break;
             }
-            catch
+            catch (Exception ex)
             {
-                // Swallow pipe errors so the listener survives transient failures.
+                _logger.Error(ex, "Named pipe listener encountered an error");
             }
         }
     }
@@ -81,8 +92,9 @@ public sealed class SingleInstanceService : IAsyncDisposable, IDisposable
     /// Returns true if delivered (we should exit), false if no server responded (we
     /// should become the primary instance).
     /// </summary>
-    public static bool TryActivate(string groupName)
+    public static bool TryActivate(string groupName, ILogger? logger = null)
     {
+        var log = logger ?? NullLogger.Instance;
         try
         {
             using var client = new NamedPipeClientStream(".", PipeName, PipeDirection.Out);
@@ -95,8 +107,9 @@ public sealed class SingleInstanceService : IAsyncDisposable, IDisposable
             client.Flush();
             return true;
         }
-        catch
+        catch (Exception ex)
         {
+            log.Error(ex, "Failed to activate running instance for group {GroupName}", groupName);
             return false;
         }
     }

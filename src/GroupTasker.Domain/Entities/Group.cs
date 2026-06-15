@@ -12,9 +12,9 @@ public sealed class Group
     public Guid Id { get; init; } = Guid.NewGuid();
 
     /// <summary>
-    /// Display name. Control characters are rejected so the name is safe to use in
-    /// line-delimited inter-process protocols (see <c>SingleInstanceService</c>) and
-    /// in shortcut file names.
+    /// Display name. Control characters and double-quotes are rejected so the name is
+    /// safe to use in inter-process protocols (see <c>SingleInstanceService</c>), in
+    /// shortcut file names, and embedded in <c>.lnk</c> arguments.
     /// </summary>
     public string Name
     {
@@ -109,6 +109,8 @@ public sealed class Group
         {
             if (char.IsControl(c))
                 throw new ArgumentException("Group name cannot contain control characters.", nameof(value));
+            if (c == '"')
+                throw new ArgumentException("Group name cannot contain double-quote characters.", nameof(value));
         }
 
         return trimmed;

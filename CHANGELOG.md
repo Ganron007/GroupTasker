@@ -7,6 +7,81 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 The canonical version lives in `Directory.Build.props` — bump `<VersionPrefix>`
 there and add a new section at the top of this file for each release.
 
+## [Unreleased]
+
+### Added
+
+- **CI pipeline** (`.github/workflows/ci.yml`) — builds, tests, and smoke-publishes
+  on every push/PR to `main` using GitHub Actions on `windows-latest`.
+- **Release pipeline** (`.github/workflows/release.yml`) — publishes self-contained
+  and framework-dependent builds on every `v*` tag and uploads the resulting zips
+  as workflow artifacts.
+- **Structured logging** via Serilog. New `ILogger` seam in the Domain layer,
+  `SerilogLogger` implementation in Infrastructure, and `SerilogBootstrap` that
+  writes to `%APPDATA%\GroupTasker\logs\log-.txt` (rolling daily, 7 days retained)
+  plus Debug output. Logger creation failures fall back to a no-op logger so the
+  app always starts.
+
+### Changed
+
+- `JsonGroupRepository` and `LauncherSettingsService` now accept `ILogger` instead
+  of the previous `Action<string, Exception>?` error callback.
+- `GroupService`, `IconCacheService`, `WindowsShortcutService`, and
+  `SingleInstanceService` are now instrumented with informational and error logs
+  for group operations, shortcut launches, icon extraction failures, and named-pipe
+  communication errors.
+
+## [1.3.5] — 2026-06-15
+
+### Security
+
+- **`IconExtractor`** now parses `AppxManifest.xml` through a safe `XmlReader` with
+  `DtdProcessing.Prohibit`, and disables the `XmlDocument.XmlResolver`. The
+  previous direct `new XmlDocument().Load(...)` had default DTD processing enabled.
+  Both `ExtractFromStoreApp` and `GetStoreAppName` go through the new
+  `LoadManifestSafe` helper.
+- **`SingleInstanceService`** named pipe is now per-user
+  (`GroupTasker-Launcher-{user-SID}`) instead of global (`GroupTasker-Launcher`).
+  Other users on the machine can no longer send fake "show group X" payloads.
+- **`Group.ValidateName`** now rejects double-quote characters in addition to
+  control characters. Prevents argument-injection into the
+  `\"{group.Name}\"` embedded in the per-group `.lnk` arguments by
+  `WindowsShortcutService.CreateGroupLauncherLink`.
+- **`ConfigPathProvider`** no longer hard-anchors config under the executable's
+  directory. New logic: if a `config/` folder already exists next to the exe
+  (portable installs), keep using it for backward compatibility; otherwise anchor
+  under `%LocalAppData%\{appName}` so installs under `C:\Program Files` and MSIX
+  packages work without write-permission failures.
+
+### Added
+
+- **Crash reporting** — `AppDomain.CurrentDomain.UnhandledException` and
+  `TaskScheduler.UnobservedTaskException` are now wired in `App.OnFrameworkInitializationCompleted`
+  right after the DI container is built. Crashes are logged to the existing
+  Serilog file sink at `%APPDATA%\GroupTasker\logs\log-{date}.txt` (7-day rolling
+  retention). The task-exception handler marks the exception as observed so a
+  fire-and-forget task failure can't tear the app down.
+- **Accessibility — flyout keyboard navigation.** `LauncherWindow` shortcuts are
+  now focusable. Arrow keys move focus through the 7-column grid (←→ for ±1,
+  ↑↓ for ±7), Enter/Space launches the focused shortcut, Esc closes the flyout.
+  The window is keyboard-focused on open.
+- **Accessibility — focus indicator.** Focused shortcut cells show a 2px
+  `#4A9EFF` border.
+- **Accessibility — screen reader labels.** Every shortcut cell in the flyout has
+  `AutomationProperties.Name` bound to the tooltip text (name + "Live — auto-updating
+  app" or "Not found: <path>"). Configurator's symbol-based buttons
+  (Move up, Move down, Remove shortcut) now have explicit `AutomationProperties.Name`
+  values.
+
+### Tests
+
+- 13 new Infrastructure tests: 9 for `JsonGroupRepository` (round-trip, GetAll
+  ordering, empty directory, non-existent ID, delete, corrupt-JSON skip,
+  idempotent overwrite) and 4 for `ConfigPathProvider` (portable vs installed
+  mode, group path subpath, no-op on construction). Test project now targets
+  `net9.0-windows` and references the Infrastructure project.
+- 46 total tests pass (up from 33). 0 warnings, 0 errors on full clean rebuild.
+
 ## [1.3.0] — 2026-06-13
 
 ### Added
