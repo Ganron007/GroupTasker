@@ -31,6 +31,53 @@ there and add a new section at the top of this file for each release.
   for group operations, shortcut launches, icon extraction failures, and named-pipe
   communication errors.
 
+## [1.4.0] — 2026-06-15
+
+### Added
+
+- **Global hotkey for the primary group** — register a system-wide hotkey (default
+  `Ctrl+Alt+G`, configurable) that opens a chosen group from anywhere. The new
+  `HotkeyBinding` value object (Domain) parses/serialises combos like
+  `Ctrl+Shift+F12`; `IHotkeyService` / `HotkeyService` (Infrastructure) wraps the
+  Win32 `RegisterHotKey` P/Invoke against a message-only window on a dedicated
+  background thread. `LauncherSettings.PrimaryGroupHotkey` + `PrimaryGroupId`
+  are persisted in `launcher.json` via a custom `HotkeyBindingJsonConverter`. A
+  new **Settings** dialog in the configurator lets the user pick the primary
+  group and edit the binding; saving immediately re-registers the hotkey on the
+  running service. Falls back to the first group by `CreatedAt` when no
+  `PrimaryGroupId` is set. **30 new unit tests** for `HotkeyBinding` (parse,
+  format, equality, key validation, round-trip).
+- **Search/filter inside the launcher flyout** — type-to-filter textbox at the top
+  of `LauncherWindow`. Filter is a case-insensitive `Contains` match on shortcut
+  name + target path, reusing the same pattern as the app picker. Esc clears the
+  filter and keeps focus on the textbox; a second Esc closes the flyout. Down
+  arrow moves focus to the first match; Enter launches the first match. The
+  flyout's existing arrow-key navigation continues to work on the filtered set.
+  Filter textbox has a blue focus underline matching the shortcut focus ring.
+- **Right-click context menu on flyout items** — five items wired to commands on
+  the parent `LauncherViewModel`:
+  - **Open file location** — `IShellGateway.RevealInFileManager(folder)`
+  - **Edit shortcut** — relaunches the configurator exe
+  - **Copy path** — Avalonia `TopLevel.Clipboard.SetTextAsync` (extension method)
+  - **Properties** — `SHObjectProperties` P/Invoke (`shell32.dll`,
+    `SHOP_FILEPATH = 1`) opens the native Windows Properties dialog
+  - **Remove from group** — `GroupService.RemoveShortcutAsync`; updates the local
+    list without a full reload
+  Context menu is styled to match the dark theme.
+
+### Fixed
+
+- **`ShowFlyout.Closing`** now preserves other `LauncherSettings` fields
+  (e.g. `PrimaryGroupHotkey`) when persisting the new position, instead of
+  overwriting the whole file with a position-only record.
+
+### Notes
+
+- 76 unit tests pass (up from 33 in v1.3.0 / 46 after the v1.3.5 Infrastructure
+  bump). 0 warnings, 0 errors on a full clean rebuild.
+- The hotkey only works while the app is running. "Start with Windows" (which
+  would let the hotkey work in the background) is planned for v1.5.0.
+
 ## [1.3.5] — 2026-06-15
 
 ### Security

@@ -10,7 +10,8 @@ public sealed class LauncherSettingsService
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         WriteIndented = true,
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        Converters = { new HotkeyBindingJsonConverter() }
     };
 
     private readonly string _filePath;

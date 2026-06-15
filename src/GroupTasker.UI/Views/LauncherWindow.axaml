@@ -22,15 +22,27 @@
             BorderBrush="#3A3A3A"
             BorderThickness="1"
             CornerRadius="6">
-        <Grid RowDefinitions="6,*">
+        <Grid RowDefinitions="6,Auto,*">
 
             <!-- Invisible drag strip — 6px at top, cursor changes on hover -->
             <Rectangle Grid.Row="0" Fill="Transparent"
                        Cursor="Hand"
                        PointerPressed="OnDragStripPressed" />
 
+            <!-- Filter box -->
+            <TextBox Grid.Row="1" Name="FilterTextBox"
+                     Text="{Binding Filter, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                     PlaceholderText="Filter…"
+                     Background="Transparent"
+                     Foreground="White"
+                     BorderThickness="0"
+                     Padding="8,4"
+                     FontSize="12"
+                     AutomationProperties.Name="Filter shortcuts"
+                     KeyDown="OnFilterKeyDown" />
+
              <!-- Shortcut grid — 7 columns, 44×44 cells, exact fit (320-2-10=308 = 7×44) -->
-             <ScrollViewer Grid.Row="1" Padding="5,4"
+             <ScrollViewer Grid.Row="2" Padding="5,4"
                           HorizontalScrollBarVisibility="Disabled">
                 <ItemsControl ItemsSource="{Binding Shortcuts}"
                               Name="ShortcutsItemsControl">
@@ -50,7 +62,27 @@
                                     Classes="ShortcutIcon"
                                     PointerPressed="OnShortcutPressed"
                                     PointerMoved="OnShortcutMoved"
-                                    PointerReleased="OnShortcutReleased">
+                                PointerReleased="OnShortcutReleased">
+                                <Border.ContextMenu>
+                                    <ContextMenu>
+                                        <MenuItem Header="Open file location"
+                                                  Command="{Binding $parent[ItemsControl].((vm:LauncherViewModel)DataContext).OpenFileLocationCommand}"
+                                                  CommandParameter="{Binding}" />
+                                        <MenuItem Header="Edit shortcut"
+                                                  Command="{Binding $parent[ItemsControl].((vm:LauncherViewModel)DataContext).EditShortcutCommand}"
+                                                  CommandParameter="{Binding}" />
+                                        <MenuItem Header="Copy path"
+                                                  Command="{Binding $parent[ItemsControl].((vm:LauncherViewModel)DataContext).CopyPathCommand}"
+                                                  CommandParameter="{Binding}" />
+                                        <MenuItem Header="Properties"
+                                                  Command="{Binding $parent[ItemsControl].((vm:LauncherViewModel)DataContext).ShowPropertiesCommand}"
+                                                  CommandParameter="{Binding}" />
+                                        <Separator />
+                                        <MenuItem Header="Remove from group"
+                                                  Command="{Binding $parent[ItemsControl].((vm:LauncherViewModel)DataContext).RemoveFromGroupCommand}"
+                                                  CommandParameter="{Binding}" />
+                                    </ContextMenu>
+                                </Border.ContextMenu>
                                 <Image Source="{Binding Icon}"
                                        Width="32" Height="32"
                                        Stretch="Uniform" />
@@ -79,6 +111,23 @@
         <Style Selector="Border.ShortcutIcon:focus">
             <Setter Property="BorderBrush" Value="#4A9EFF" />
             <Setter Property="BorderThickness" Value="2" />
+        </Style>
+        <Style Selector="TextBox#FilterTextBox:focus /template/ Border#PART_BorderElement">
+            <Setter Property="BorderBrush" Value="#4A9EFF" />
+            <Setter Property="BorderThickness" Value="0,0,0,1" />
+        </Style>
+        <Style Selector="ContextMenu">
+            <Setter Property="Background" Value="#252525" />
+            <Setter Property="BorderBrush" Value="#3A3A3A" />
+            <Setter Property="BorderThickness" Value="1" />
+        </Style>
+        <Style Selector="ContextMenu MenuItem">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="Padding" Value="12,6" />
+        </Style>
+        <Style Selector="ContextMenu MenuItem:pointerover">
+            <Setter Property="Background" Value="#3A3A3A" />
         </Style>
     </Window.Styles>
 </Window>

@@ -28,18 +28,76 @@ public partial class LauncherWindow : Window
         Deactivated += OnDeactivated;
         KeyDown += OnKeyDown;
         Opened += OnOpened;
+        DataContextChanged += OnDataContextChanged;
+    }
+
+    private void OnDataContextChanged(object? sender, EventArgs e)
+    {
+        if (DataContext is LauncherViewModel vm)
+            vm.ShortcutsFiltered += OnShortcutsFiltered;
+    }
+
+    private void OnShortcutsFiltered(object? sender, EventArgs e)
+    {
+        // If the focused control is one of the shortcut borders, move focus to the
+        // new first item so the user can keep arrow-navigating after the filter changed.
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (DataContext is LauncherViewModel { Filter: { Length: > 0 } } && ShortcutsItemsControl.Items.Count > 0)
+                FocusShortcutAt(0);
+        }, DispatcherPriority.Input);
     }
 
     private void OnOpened(object? sender, EventArgs e)
     {
-        Dispatcher.UIThread.Post(() => FocusShortcutAt(0), DispatcherPriority.Input);
+        Dispatcher.UIThread.Post(() => FilterTextBox.Focus(), DispatcherPriority.Input);
+    }
+
+    private void OnFilterKeyDown(object? sender, KeyEventArgs e)
+    {
+        switch (e.Key)
+        {
+            case Key.Escape:
+                if (DataContext is LauncherViewModel vm && !string.IsNullOrEmpty(vm.Filter))
+                {
+                    vm.Filter = "";
+                    FilterTextBox.Focus();
+                }
+                else
+                {
+                    Close();
+                }
+                e.Handled = true;
+                break;
+
+            case Key.Down:
+                if (ShortcutsItemsControl.Items.Count > 0)
+                    FocusShortcutAt(0);
+                e.Handled = true;
+                break;
+
+            case Key.Enter:
+                LaunchShortcutAt(0);
+                e.Handled = true;
+                break;
+        }
     }
 
     private void OnKeyDown(object? sender, KeyEventArgs e)
     {
         if (e.Key == Key.Escape)
         {
-            Close();
+            // If a filter is active, clear it; otherwise close. (The TextBox also handles
+            // Esc on its own, so this branch is mostly hit when focus is on a shortcut.)
+            if (DataContext is LauncherViewModel { Filter: { Length: > 0 } } vm)
+            {
+                vm.Filter = "";
+                FilterTextBox.Focus();
+            }
+            else
+            {
+                Close();
+            }
             e.Handled = true;
             return;
         }

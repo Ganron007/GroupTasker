@@ -6,6 +6,9 @@ using Avalonia.Controls.ApplicationLifetimes;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using GroupTasker.Application.Services;
+using GroupTasker.Domain.Interfaces;
+using GroupTasker.Domain.Logging;
+using GroupTasker.Infrastructure.Shell;
 using GroupTasker.UI;
 
 namespace GroupTasker.UI.ViewModels;
@@ -14,6 +17,10 @@ public partial class MainWindowViewModel : ViewModelBase
 {
     private readonly GroupService _groupService;
     private readonly GroupConfiguratorViewModelFactory _configuratorFactory;
+    private readonly LauncherSettingsService _settingsService;
+    private readonly IHotkeyService _hotkeyService;
+    private readonly IGroupRepository _repository;
+    private readonly ILogger _logger;
 
     [ObservableProperty]
     private ObservableCollection<GroupCardViewModel> _groups = [];
@@ -24,10 +31,20 @@ public partial class MainWindowViewModel : ViewModelBase
     /// <summary>"GroupTasker v1.1.0".</summary>
     public string TitleWithVersion => AppInfo.TitleWithVersion;
 
-    public MainWindowViewModel(GroupService groupService, GroupConfiguratorViewModelFactory configuratorFactory)
+    public MainWindowViewModel(
+        GroupService groupService,
+        GroupConfiguratorViewModelFactory configuratorFactory,
+        LauncherSettingsService settingsService,
+        IHotkeyService hotkeyService,
+        IGroupRepository repository,
+        ILogger logger)
     {
         _groupService = groupService;
         _configuratorFactory = configuratorFactory;
+        _settingsService = settingsService;
+        _hotkeyService = hotkeyService;
+        _repository = repository;
+        _logger = logger;
     }
 
     [RelayCommand]
@@ -88,6 +105,16 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         if (card is null) return;
         await card.PinToTaskbarAsync();
+    }
+
+    [RelayCommand]
+    private async Task OpenSettings()
+    {
+        var owner = GetMainWindow();
+        if (owner is null) return;
+
+        var settingsVm = new SettingsViewModel(_settingsService, _hotkeyService, _repository, _logger);
+        await Views.SettingsDialog.ShowAsync(owner, settingsVm);
     }
 
     public async Task RefreshAll() => await LoadGroups();

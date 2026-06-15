@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
@@ -29,6 +30,7 @@ public partial class App : Avalonia.Application
 
     private SingleInstanceService? _singleInstance;
     private LauncherSettingsService? _settingsService;
+    private IHotkeyService? _hotkeyService;
     private Window? _currentFlyout;
     private IServiceProvider? _provider;
 
@@ -63,10 +65,13 @@ public partial class App : Avalonia.Application
             else
                 HandleConfiguratorMode(desktop, _provider);
 
+            RegisterHotkeyIfConfigured();
+
             desktop.Exit += async (_, _) =>
             {
                 if (_singleInstance is not null)
                     await _singleInstance.DisposeAsync();
+                _hotkeyService?.Dispose();
             };
         }
 
@@ -121,6 +126,9 @@ public partial class App : Avalonia.Application
                 sp.GetRequiredService<IConfigPathProvider>(),
                 sp.GetRequiredService<ILogger>()));
 
+        services.AddSingleton<IHotkeyService>(sp => new HotkeyService(
+            sp.GetRequiredService<ILogger>()));
+
         services.AddSingleton<GroupService>(sp => new GroupService(
             sp.GetRequiredService<IGroupRepository>(),
             sp.GetRequiredService<IIconCacheService>(),
@@ -138,7 +146,8 @@ public partial class App : Avalonia.Application
             name => new LauncherViewModel(
                 name,
                 sp.GetRequiredService<GroupService>(),
-                sp.GetRequiredService<IShortcutService>()));
+                sp.GetRequiredService<IShortcutService>(),
+                sp.GetRequiredService<IShellGateway>()));
 
         return services.BuildServiceProvider();
     }
@@ -152,6 +161,38 @@ public partial class App : Avalonia.Application
         {
             DataContext = provider.GetRequiredService<MainWindowViewModel>()
         };
+    }
+
+    private void RegisterHotkeyIfConfigured()
+    {
+        if (_provider is null) return;
+        var settings = _provider.GetRequiredService<LauncherSettingsService>().Load();
+        if (settings.PrimaryGroupHotkey is null) return;
+
+        _hotkeyService = _provider.GetRequiredService<IHotkeyService>();
+        if (!_hotkeyService.TryRegister(settings.PrimaryGroupHotkey))
+        {
+            _hotkeyService = null;
+            return;
+        }
+
+        _hotkeyService.HotkeyPressed += () => OpenPrimaryGroupFlyout();
+    }
+
+    private void OpenPrimaryGroupFlyout()
+    {
+        if (_provider is null) return;
+        Dispatcher.UIThread.Post(async () =>
+        {
+            var settings = _provider.GetRequiredService<LauncherSettingsService>().Load();
+            var groups = await _provider.GetRequiredService<IGroupRepository>().GetAllAsync();
+            var primaryId = settings.PrimaryGroupId;
+            var group = primaryId is { } id
+                ? groups.FirstOrDefault(g => g.Id == id) ?? groups.FirstOrDefault()
+                : groups.FirstOrDefault();
+            if (group is not null)
+                ShowFlyout(group.Name, _provider);
+        });
     }
 
     private void HandleLauncherMode(
@@ -207,12 +248,12 @@ public partial class App : Avalonia.Application
 
         flyout.Closing += (_, _) =>
         {
-            _settingsService?.Save(new LauncherSettings
-            {
-                HasPosition = true,
-                PositionX = flyout.Position.X,
-                PositionY = flyout.Position.Y
-            });
+            // Preserve other settings (e.g. PrimaryGroupHotkey) when persisting the new position.
+            var current = _settingsService?.Load() ?? new LauncherSettings();
+            current.HasPosition = true;
+            current.PositionX = flyout.Position.X;
+            current.PositionY = flyout.Position.Y;
+            _settingsService?.Save(current);
         };
 
         flyout.Closed += (_, _) => _currentFlyout = null;
