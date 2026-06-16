@@ -89,7 +89,21 @@ public partial class SettingsViewModel : ViewModelBase
         // Tray + auto-start
         settings.ShowInTray = ShowInTray;
         settings.StartWithWindows = StartWithWindows;
-        StartupService.SetAutoStart(StartWithWindows);
+
+        // Try the registry write BEFORE saving settings, so a failure doesn't leave
+        // the on-disk settings claiming auto-start is enabled when it isn't.
+        if (StartWithWindows && !StartupService.SetAutoStart(true))
+        {
+            _settingsService.Save(settings);
+            ErrorMessage = "Settings saved, but failed to enable Start with Windows. The registry write was blocked — try running as administrator or check the registry permissions.";
+            return;
+        }
+        if (!StartWithWindows && !StartupService.SetAutoStart(false))
+        {
+            _settingsService.Save(settings);
+            ErrorMessage = "Settings saved, but failed to disable Start with Windows. The registry write was blocked — you may need to remove the HKCU entry manually.";
+            return;
+        }
 
         // Persist
         _settingsService.Save(settings);

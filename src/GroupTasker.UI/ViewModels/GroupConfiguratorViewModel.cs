@@ -267,23 +267,33 @@ public partial class GroupConfiguratorViewModel : ViewModelBase
     {
         try
         {
+            // Normalise custom-icon / accent inputs.
+            var customIcon = string.IsNullOrWhiteSpace(CustomIconPath) ? null : CustomIconPath;
+            var accent = string.IsNullOrWhiteSpace(AccentColor) ? null : AccentColor;
+
             if (_editingGroup is not null)
             {
                 _editingGroup.Name = GroupName;
-                _editingGroup.CustomIconPath = string.IsNullOrWhiteSpace(CustomIconPath) ? null : CustomIconPath;
-                _editingGroup.AccentColor = string.IsNullOrWhiteSpace(AccentColor) ? null : AccentColor;
+                _editingGroup.CustomIconPath = customIcon;
+                _editingGroup.AccentColor = accent;
                 _editingGroup.ReplaceShortcuts(Shortcuts.Select(s => s.DomainShortcut));
                 await _groupService.SaveGroupAsync(_editingGroup);
                 SavedGroup = _editingGroup;
             }
             else
             {
-                SavedGroup = await _groupService.CreateGroupAsync(
-                    GroupName,
-                    Shortcuts.Select(s => s.DomainShortcut));
-                SavedGroup.CustomIconPath = string.IsNullOrWhiteSpace(CustomIconPath) ? null : CustomIconPath;
-                SavedGroup.AccentColor = string.IsNullOrWhiteSpace(AccentColor) ? null : AccentColor;
-                await _groupService.SaveGroupAsync(SavedGroup);
+                // Single save: build the entity with the custom icon + accent set BEFORE
+                // CreateGroupAsync runs, so the first (and only) disk write is correct.
+                var newGroup = new Domain.Entities.Group
+                {
+                    Name = GroupName,
+                    CustomIconPath = customIcon,
+                    AccentColor = accent
+                };
+                foreach (var s in Shortcuts)
+                    newGroup.AddShortcut(s.DomainShortcut);
+                await _groupService.SaveNewGroupAsync(newGroup);
+                SavedGroup = newGroup;
             }
 
             CloseWindow(true);

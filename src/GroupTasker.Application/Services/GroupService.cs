@@ -58,6 +58,19 @@ public sealed class GroupService
         return group;
     }
 
+    /// <summary>
+    /// Persist a pre-built <see cref="Group"/> (with shortcuts + custom icon + accent
+    /// already populated) in a single save. Use this when the caller needs full control
+    /// over the entity before the first disk write.
+    /// </summary>
+    public async Task SaveNewGroupAsync(Group group, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(group);
+        await BuildIconsIfDirtyAsync(group, ct);
+        await _repository.SaveAsync(group, ct);
+        _logger.Information("Created group {GroupId} with name {GroupName} and {ShortcutCount} shortcuts", group.Id, group.Name, group.Shortcuts.Count);
+    }
+
     public async Task DeleteGroupAsync(Guid id, CancellationToken ct = default)
     {
         var group = await _repository.GetByIdAsync(id, ct)

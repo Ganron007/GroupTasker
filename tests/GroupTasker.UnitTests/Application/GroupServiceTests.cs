@@ -159,4 +159,31 @@ public class GroupServiceTests : IDisposable
         await Assert.ThrowsAsync<InvalidOperationException>(
             () => _svc.ReorderShortcutAsync(Guid.NewGuid(), Guid.NewGuid(), 0));
     }
+
+    [Fact]
+    public async Task SaveNewGroupAsync_PreservesCustomIconAndAccentColor_OnFirstSave()
+    {
+        // Regression: the configurator used to call CreateGroupAsync (which saves once)
+        // then mutate CustomIconPath/AccentColor and save again. SaveNewGroupAsync exists
+        // so the caller can build the entity correctly and save exactly once.
+        var group = new GroupTasker.Domain.Entities.Group
+        {
+            Name = "Custom",
+            CustomIconPath = @"C:\icons\my.ico",
+            AccentColor = "#FF6B6B"
+        };
+        group.AddShortcut(_shortcutSvc.Resolve("a.exe"));
+
+        var saveCountBefore = _repo.SaveCallCount;
+        await _svc.SaveNewGroupAsync(group);
+
+        // Exactly one save call (not two).
+        Assert.Equal(saveCountBefore + 1, _repo.SaveCallCount);
+
+        // The persisted values are the ones we set — no second save needed.
+        var reloaded = await _svc.GetGroupAsync(group.Id);
+        Assert.NotNull(reloaded);
+        Assert.Equal(@"C:\icons\my.ico", reloaded!.CustomIconPath);
+        Assert.Equal("#FF6B6B", reloaded.AccentColor);
+    }
 }

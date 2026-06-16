@@ -62,6 +62,9 @@ public partial class App : Avalonia.Application
         {
             var args = Environment.GetCommandLineArgs();
             _trayMode = args.Length > 1 && args[1] == "--tray";
+            // --no-tray: spawn a configurator from the tray without making it add its own
+            // tray icon. Prevents the "click Open Configurator → two tray icons" loop.
+            var noTray = args.Length > 1 && args[1] == "--no-tray";
             var launcherArg = args.Length > 1 && !args[1].StartsWith("--") ? args[1] : null;
 
             if (launcherArg is not null)
@@ -72,7 +75,7 @@ public partial class App : Avalonia.Application
                 HandleConfiguratorMode(desktop, _provider);
 
             RegisterHotkeyIfConfigured();
-            SetupTrayIcon();
+            if (!noTray) SetupTrayIcon();
 
             desktop.Exit += async (_, _) =>
             {
@@ -226,10 +229,17 @@ public partial class App : Avalonia.Application
         {
             if (actionKey == "open-configurator")
             {
-                // Relaunch the configurator (same exe, no args).
+                // Spawn a configurator process that does NOT create its own tray
+                // icon (--no-tray) — otherwise the user would accumulate tray
+                // icons every time they open the configurator from the tray.
                 var exePath = Environment.ProcessPath;
                 if (exePath is not null)
-                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(exePath) { UseShellExecute = true });
+                {
+                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(exePath, "--no-tray")
+                    {
+                        UseShellExecute = true
+                    });
+                }
             }
             else if (actionKey == "quit")
             {
