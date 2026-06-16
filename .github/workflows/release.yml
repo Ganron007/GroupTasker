@@ -70,31 +70,28 @@ jobs:
           Get-FileHash "./publish/GroupTasker-$tag-fxdep-win-x64.zip" -Algorithm MD5 | ForEach-Object { Set-Content -Path "./publish/GroupTasker-$tag-fxdep-win-x64.zip.md5" -Value ($_.Hash.ToLower() + "  GroupTasker-$tag-fxdep-win-x64.zip") }
 
       - name: Extract release notes from CHANGELOG.md
-        id: notes
         shell: pwsh
         run: |
           $tag = "${{ github.ref_name }}"
           $version = $tag -replace '^v', ''
           $changelog = Get-Content "CHANGELOG.md" -Raw
-          # Match the heading "## [X.Y.Z]" and capture everything until the next "## [" or end-of-file.
-          $pattern = "(?ms)^## \[\Q$version\E\][^\n]*\n(.*?)(?=^## \[|\z)"
+          $escaped = [regex]::Escape($version)
+          $pattern = '(?ms)^## \[' + $escaped + '\][^\n]*\n(.*?)(?=^## \[|\z)'
           $match = [regex]::Match($changelog, $pattern)
-          $body = if ($match.Success) {
-            $match.Groups[1].Value.Trim()
+          if ($match.Success) {
+            $match.Groups[1].Value.Trim() | Out-File -FilePath release-notes.md -Encoding utf8
           } else {
-            "## What's changed`n`nFull changelog: see [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/${{ github.ref_name }}/CHANGELOG.md)."
+            $fallback = "## What's changed`n`nFull changelog: see [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/${{ github.ref_name }}/CHANGELOG.md)."
+            $fallback | Out-File -FilePath release-notes.md -Encoding utf8
           }
-          # Multi-line output requires the heredoc form in $GITHUB_OUTPUT.
-          "body<<EOF" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
-          $body | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
-          "EOF" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          Write-Host "::notice::Release notes written to release-notes.md"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
           name: GroupTasker ${{ github.ref_name }}
-          body: ${{ steps.notes.outputs.body }}
+          body_path: release-notes.md
           fail_on_unmatched_files: true
           files: |
             ./publish/GroupTasker-${{ github.ref_name }}-win-x64.zip
