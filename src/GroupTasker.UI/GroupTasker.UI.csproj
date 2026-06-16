@@ -7,6 +7,10 @@
     <Nullable>enable</Nullable>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+    <!-- Pre-declare the RIDs we publish for. Without this, `dotnet restore` doesn't
+         add the win-x64 target to the assets file, and the subsequent
+         `dotnet publish` step with a runtime in CI fails with NETSDK1047. -->
+    <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
   </PropertyGroup>
 
   <ItemGroup>
