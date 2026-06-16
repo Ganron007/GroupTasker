@@ -5,6 +5,10 @@ on:
     tags:
       - 'v*'
 
+# softprops/action-gh-release needs write access to create the release + upload files.
+permissions:
+  contents: write
+
 jobs:
   publish:
     runs-on: windows-latest
@@ -62,15 +66,18 @@ jobs:
           $tag = "${{ github.ref_name }}"
           Compress-Archive -Path ./publish/GroupTasker-self-contained/* -DestinationPath "./publish/GroupTasker-$tag-win-x64.zip" -Force
           Compress-Archive -Path ./publish/GroupTasker-fxdep/* -DestinationPath "./publish/GroupTasker-$tag-fxdep-win-x64.zip" -Force
+          Get-FileHash "./publish/GroupTasker-$tag-win-x64.zip" -Algorithm MD5 | ForEach-Object { Set-Content -Path "./publish/GroupTasker-$tag-win-x64.zip.md5" -Value ($_.Hash.ToLower() + "  GroupTasker-$tag-win-x64.zip") }
+          Get-FileHash "./publish/GroupTasker-$tag-fxdep-win-x64.zip" -Algorithm MD5 | ForEach-Object { Set-Content -Path "./publish/GroupTasker-$tag-fxdep-win-x64.zip.md5" -Value ($_.Hash.ToLower() + "  GroupTasker-$tag-fxdep-win-x64.zip") }
 
-      - name: Upload self-contained artifact
-        uses: actions/upload-artifact@v4
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
         with:
-          name: GroupTasker-${{ github.ref_name }}-win-x64
-          path: ./publish/GroupTasker-${{ github.ref_name }}-win-x64.zip
-
-      - name: Upload framework-dependent artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: GroupTasker-${{ github.ref_name }}-fxdep-win-x64
-          path: ./publish/GroupTasker-${{ github.ref_name }}-fxdep-win-x64.zip
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          files: |
+            ./publish/GroupTasker-${{ github.ref_name }}-win-x64.zip
+            ./publish/GroupTasker-${{ github.ref_name }}-win-x64.zip.md5
+            ./publish/GroupTasker-${{ github.ref_name }}-fxdep-win-x64.zip
+            ./publish/GroupTasker-${{ github.ref_name }}-fxdep-win-x64.zip.md5
