@@ -31,6 +31,49 @@ there and add a new section at the top of this file for each release.
   for group operations, shortcut launches, icon extraction failures, and named-pipe
   communication errors.
 
+## [1.5.0] — 2026-06-15
+
+### Added
+
+- **System tray icon** — `ITrayIconService` (Domain) + `TrayIconService`
+  (Infrastructure) wrap `Shell_NotifyIconW` against a hidden message-only
+  window on a dedicated background thread. The icon is extracted from the
+  running exe via `ExtractIcon`. The context menu lists every group (with
+  a checkmark on the primary), then "Open configurator" and "Quit". Left-click
+  on the icon opens the primary group's flyout.
+- **Auto-start with Windows** — new `StartupService.SetAutoStart(bool)` writes
+  `HKCU\Software\Microsoft\Windows\CurrentVersion\Run\GroupTasker` with
+  `"exePath" --tray`. When enabled, Windows launches the app hidden in the
+  tray on login. The new `--tray` CLI arg sets `ShutdownMode.OnExplicitShutdown`
+  so the process keeps the single-instance pipe + global hotkey alive without
+  showing any window. The Settings dialog gets two new checkboxes:
+  "Show tray icon while running" (default on) and "Start with Windows
+  (hidden in tray)" (default off).
+- **Per-group custom icon** — `Group.CustomIconPath` (string?). The
+  configurator gets "Browse…" / "Clear" buttons for picking a `.ico`/PNG/BMP/JPG.
+  When set, `WindowsShortcutService.CreateGroupLauncherLink` uses it as the
+  `.lnk` icon location, overriding the auto-generated composite.
+- **Per-group accent colour** — `Group.AccentColor` (string, hex like
+  `#4A9EFF`). The `LauncherWindow` border brush binds to it (parsed as
+  `IBrush` via `Color.Parse` in the VM). Empty = default `#3A3A3A`.
+- **Export / import groups** — `GroupService.ExportGroupsAsync(path)` serializes
+  all groups to a single JSON file; `GroupService.ImportGroupsAsync(path)`
+  deserializes and saves each via the repository (overwrites by Id). The main
+  window gets "Export" and "Import" buttons wired to file-picker dialogs.
+  Import reloads the group list.
+
+### Notes
+
+- 76 unit tests pass (unchanged from v1.4.0). 0 warnings, 0 errors on a full
+  clean rebuild. The tray icon + auto-start are P/Invoke / registry so they
+  can't be unit-tested without a Windows session; manual smoke test is the
+  verification path.
+- **Known limitation:** the tray icon service is only active while the
+  configurator or launcher process is running. The "Start with Windows" toggle
+  ensures it starts on login. There is no "minimise to tray" behaviour when
+  the user closes the configurator window — closing the configurator exits
+  the app (intentional, matches v1.4.0 behaviour).
+
 ## [1.4.0] — 2026-06-15
 
 ### Added

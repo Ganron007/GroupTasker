@@ -125,16 +125,25 @@
 
         <!-- Bottom Bar -->
         <Border Grid.Row="2" Background="#0D0D0D" Padding="32,16">
-            <Grid ColumnDefinitions="*,Auto,Auto">
+            <Grid ColumnDefinitions="*,Auto,Auto,Auto">
                 <Button Grid.Column="0" Content="+ Add Group"
                         Command="{Binding AddGroupCommand}"
                         Classes="Primary"
                         HorizontalAlignment="Left" />
-                <Button Grid.Column="1" Content="Settings"
+                <Button Grid.Column="1" Content="Export"
+                        Command="{Binding ExportGroupsCommand}"
+                        Classes="Secondary"
+                        AutomationProperties.Name="Export groups to a backup file"
+                        Margin="0,0,8,0" />
+                <Button Grid.Column="2" Content="Import"
+                        Command="{Binding ImportGroupsCommand}"
+                        Classes="Secondary"
+                        AutomationProperties.Name="Import groups from a backup file"
+                        Margin="0,0,8,0" />
+                <Button Grid.Column="3" Content="Settings"
                         Command="{Binding OpenSettingsCommand}"
                         Classes="Secondary"
-                        AutomationProperties.Name="Open settings (global hotkey, primary group)"
-                        Margin="0,0,12,0" />
+                        AutomationProperties.Name="Open settings (global hotkey, primary group, tray, auto-start)" />
             </Grid>
         </Border>
     </Grid>

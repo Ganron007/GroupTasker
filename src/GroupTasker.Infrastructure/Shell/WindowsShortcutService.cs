@@ -243,12 +243,17 @@ public sealed class WindowsShortcutService : IShortcutService
         Directory.CreateDirectory(_paths.ShortcutFolder);
         var linkPath = Path.Combine(_paths.ShortcutFolder, $"{FileNameSanitizer.Sanitize(group.Name)}.lnk");
 
+        // If the user set a custom icon, use it instead of the auto-generated composite.
+        var effectiveIcon = !string.IsNullOrEmpty(group.CustomIconPath) && File.Exists(group.CustomIconPath)
+            ? group.CustomIconPath
+            : iconPath;
+
         ShellLinkInterop.CreateShortcut(
             targetPath: _exePath,
             appUserModelId: $"grouptasker.local.group.{group.Id:N}",
             description: $"GroupTasker — {group.Name}",
             workingDirectory: Path.GetDirectoryName(_exePath) ?? "",
-            iconLocation: iconPath,
+            iconLocation: effectiveIcon,
             savePath: linkPath,
             arguments: $"\"{group.Name}\"");
 

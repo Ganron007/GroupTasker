@@ -26,6 +26,8 @@ public partial class SettingsViewModel : ViewModelBase
 
     [ObservableProperty] private string? _primaryGroupId;
     [ObservableProperty] private string _hotkeyText = string.Empty;
+    [ObservableProperty] private bool _showInTray = true;
+    [ObservableProperty] private bool _startWithWindows;
     [ObservableProperty] private string? _errorMessage;
     [ObservableProperty] private string? _statusMessage;
     [ObservableProperty] private ObservableCollection<GroupOption> _availableGroups = [];
@@ -48,6 +50,8 @@ public partial class SettingsViewModel : ViewModelBase
         var settings = _settingsService.Load();
         PrimaryGroupId = settings.PrimaryGroupId?.ToString();
         HotkeyText = settings.PrimaryGroupHotkey?.ToString() ?? string.Empty;
+        ShowInTray = settings.ShowInTray ?? true;
+        StartWithWindows = settings.StartWithWindows ?? false;
 
         var groups = await _repository.GetAllAsync();
         AvailableGroups = new ObservableCollection<GroupOption>(
@@ -82,9 +86,15 @@ public partial class SettingsViewModel : ViewModelBase
         }
         settings.PrimaryGroupHotkey = newHotkey;
 
+        // Tray + auto-start
+        settings.ShowInTray = ShowInTray;
+        settings.StartWithWindows = StartWithWindows;
+        StartupService.SetAutoStart(StartWithWindows);
+
         // Persist
         _settingsService.Save(settings);
-        _logger.Information("Settings updated: PrimaryGroupId={PrimaryGroupId}, Hotkey={Hotkey}", primaryId, newHotkey?.ToString() ?? "(none)");
+        _logger.Information("Settings updated: PrimaryGroupId={PrimaryGroupId}, Hotkey={Hotkey}, ShowInTray={ShowInTray}, StartWithWindows={StartWithWindows}",
+            primaryId, newHotkey?.ToString() ?? "(none)", ShowInTray, StartWithWindows);
 
         // Re-register hotkey on the running service
         _hotkeyService.Unregister();

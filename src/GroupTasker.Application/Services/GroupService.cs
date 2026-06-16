@@ -178,4 +178,37 @@ public sealed class GroupService
         group.IconPath = await _iconCache.BuildGroupIconAsync(group, groupPath, ct);
         group.MarkIconCacheClean();
     }
+
+    /// <summary>Export all groups to a single JSON file at the given path.</summary>
+    public async Task ExportGroupsAsync(string filePath, CancellationToken ct = default)
+    {
+        var groups = await _repository.GetAllAsync(ct);
+        var json = System.Text.Json.JsonSerializer.Serialize(groups, new System.Text.Json.JsonSerializerOptions
+        {
+            WriteIndented = true,
+            Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() }
+        });
+        await File.WriteAllTextAsync(filePath, json, ct);
+        _logger.Information("Exported {Count} groups to {FilePath}", groups.Count, filePath);
+    }
+
+    /// <summary>Import groups from a JSON file. Overwrites existing groups with the same Id.</summary>
+    public async Task<int> ImportGroupsAsync(string filePath, CancellationToken ct = default)
+    {
+        var json = await File.ReadAllTextAsync(filePath, ct);
+        var groups = System.Text.Json.JsonSerializer.Deserialize<List<Group>>(json, new System.Text.Json.JsonSerializerOptions
+        {
+            Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() }
+        });
+
+        if (groups is null) return 0;
+
+        foreach (var group in groups)
+        {
+            await _repository.SaveAsync(group, ct);
+        }
+
+        _logger.Information("Imported {Count} groups from {FilePath}", groups.Count, filePath);
+        return groups.Count;
+    }
 }

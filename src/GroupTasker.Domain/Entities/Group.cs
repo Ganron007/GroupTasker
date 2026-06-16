@@ -24,6 +24,12 @@ public sealed class Group
 
     public string? IconPath { get; set; }
 
+    /// <summary>User-provided custom icon path (.ico or .png). When set, overrides the auto-generated composite icon.</summary>
+    public string? CustomIconPath { get; set; }
+
+    /// <summary>Accent colour for the flyout border, as a hex string (e.g. "#4A9EFF"). Null = default dark grey.</summary>
+    public string? AccentColor { get; set; }
+
     /// <summary>
     /// Shortcuts belonging to this group. Round-trips via <see cref="JsonIncludeAttribute"/>
     /// so the deserializer can populate the collection on init-only entities.

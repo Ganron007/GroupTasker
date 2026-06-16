@@ -16,18 +16,42 @@
 
     <Grid RowDefinitions="Auto,*,Auto" Margin="24">
 
-        <!-- Group Name -->
-        <StackPanel Grid.Row="0" Margin="0,0,0,20">
-            <TextBlock Text="Group Name" FontSize="12" Foreground="#8F8F8F" Margin="0,0,0,6" />
-            <TextBox Text="{Binding GroupName}"
-                     FontSize="16" FontWeight="SemiBold"
-                     Foreground="White"
-                     Background="#252525"
-                     BorderBrush="#3A3A3A"
-                     BorderThickness="1"
-                     CornerRadius="6"
-                     Padding="12,8"
-                     PlaceholderText="Enter group name" />
+        <!-- Group Name + Appearance -->
+        <StackPanel Grid.Row="0" Margin="0,0,0,20" Spacing="12">
+            <StackPanel Spacing="6">
+                <TextBlock Text="Group Name" FontSize="12" Foreground="#8F8F8F" Margin="0,0,0,6" />
+                <TextBox Text="{Binding GroupName}"
+                         FontSize="16" FontWeight="SemiBold"
+                         Foreground="White"
+                         Background="#252525"
+                         BorderBrush="#3A3A3A"
+                         BorderThickness="1"
+                         CornerRadius="6"
+                         Padding="12,8"
+                         PlaceholderText="Enter group name" />
+            </StackPanel>
+
+            <!-- Custom icon + accent colour row -->
+            <StackPanel Orientation="Horizontal" Spacing="12">
+                <StackPanel Spacing="6">
+                    <TextBlock Text="Custom icon" FontSize="12" Foreground="#8F8F8F" />
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <Button Content="Browse…" Command="{Binding PickCustomIconCommand}" Classes="Secondary" FontSize="12" />
+                        <Button Content="Clear" Command="{Binding ClearCustomIconCommand}" Classes="Secondary" FontSize="12" />
+                    </StackPanel>
+                    <TextBlock Text="{Binding CustomIconPath}" FontSize="10" Foreground="#6A6A6A"
+                               TextTrimming="CharacterEllipsis" MaxWidth="300" />
+                </StackPanel>
+                <StackPanel Spacing="6">
+                    <TextBlock Text="Accent colour" FontSize="12" Foreground="#8F8F8F" />
+                    <TextBox Text="{Binding AccentColor}"
+                             FontSize="13" Foreground="White"
+                             Background="#252525" BorderBrush="#3A3A3A"
+                             BorderThickness="1" CornerRadius="6"
+                             Padding="8,6" Width="100"
+                             PlaceholderText="#4A9EFF" />
+                </StackPanel>
+            </StackPanel>
         </StackPanel>
 
         <!-- Shortcut List -->

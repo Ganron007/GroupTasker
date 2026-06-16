@@ -60,6 +60,8 @@ public partial class GroupConfiguratorViewModel : ViewModelBase
 
     [ObservableProperty] private string _groupName = "New Group";
     [ObservableProperty] private string? _iconSourcePath;
+    [ObservableProperty] private string? _customIconPath;
+    [ObservableProperty] private string _accentColor = "";
     [ObservableProperty] private ObservableCollection<ShortcutViewModel> _shortcuts = [];
     [ObservableProperty] private bool _isNewGroup = true;
     [ObservableProperty] private string? _errorMessage;
@@ -85,6 +87,8 @@ public partial class GroupConfiguratorViewModel : ViewModelBase
             _editingGroup = existingGroup;
             GroupName = existingGroup.Name;
             IconSourcePath = existingGroup.IconPath;
+            CustomIconPath = existingGroup.CustomIconPath;
+            AccentColor = existingGroup.AccentColor ?? "";
             IsNewGroup = false;
 
             Shortcuts = new ObservableCollection<ShortcutViewModel>(
@@ -227,6 +231,38 @@ public partial class GroupConfiguratorViewModel : ViewModelBase
     }
 
     [RelayCommand]
+    private async Task PickCustomIcon()
+    {
+        if (HostWindow is null) return;
+        var topLevel = TopLevel.GetTopLevel(HostWindow);
+        if (topLevel is null) return;
+
+        var options = new Avalonia.Platform.Storage.FilePickerOpenOptions
+        {
+            Title = "Choose a custom group icon",
+            AllowMultiple = false,
+            FileTypeFilter =
+            [
+                new Avalonia.Platform.Storage.FilePickerFileType("Icons")
+                {
+                    Patterns = ["*.ico", "*.png", "*.bmp", "*.jpg", "*.jpeg"]
+                },
+                new Avalonia.Platform.Storage.FilePickerFileType("All files")
+                {
+                    Patterns = ["*.*"]
+                }
+            ]
+        };
+
+        var files = await topLevel.StorageProvider.OpenFilePickerAsync(options);
+        if (files is not null && files.Count > 0)
+            CustomIconPath = files[0].Path.LocalPath;
+    }
+
+    [RelayCommand]
+    private void ClearCustomIcon() => CustomIconPath = null;
+
+    [RelayCommand]
     private async Task Save()
     {
         try
@@ -234,17 +270,20 @@ public partial class GroupConfiguratorViewModel : ViewModelBase
             if (_editingGroup is not null)
             {
                 _editingGroup.Name = GroupName;
+                _editingGroup.CustomIconPath = string.IsNullOrWhiteSpace(CustomIconPath) ? null : CustomIconPath;
+                _editingGroup.AccentColor = string.IsNullOrWhiteSpace(AccentColor) ? null : AccentColor;
                 _editingGroup.ReplaceShortcuts(Shortcuts.Select(s => s.DomainShortcut));
                 await _groupService.SaveGroupAsync(_editingGroup);
                 SavedGroup = _editingGroup;
             }
             else
             {
-                // Single save: CreateGroupAsync builds icons + persists in one round-trip,
-                // replacing the old "create empty, mutate list, save again" double-write.
                 SavedGroup = await _groupService.CreateGroupAsync(
                     GroupName,
                     Shortcuts.Select(s => s.DomainShortcut));
+                SavedGroup.CustomIconPath = string.IsNullOrWhiteSpace(CustomIconPath) ? null : CustomIconPath;
+                SavedGroup.AccentColor = string.IsNullOrWhiteSpace(AccentColor) ? null : AccentColor;
+                await _groupService.SaveGroupAsync(SavedGroup);
             }
 
             CloseWindow(true);

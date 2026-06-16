@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -31,8 +32,10 @@ public partial class App : Avalonia.Application
     private SingleInstanceService? _singleInstance;
     private LauncherSettingsService? _settingsService;
     private IHotkeyService? _hotkeyService;
+    private ITrayIconService? _trayService;
     private Window? _currentFlyout;
     private IServiceProvider? _provider;
+    private bool _trayMode;
 
     public override void Initialize() => AvaloniaXamlLoader.Load(this);
 
@@ -58,20 +61,25 @@ public partial class App : Avalonia.Application
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             var args = Environment.GetCommandLineArgs();
+            _trayMode = args.Length > 1 && args[1] == "--tray";
             var launcherArg = args.Length > 1 && !args[1].StartsWith("--") ? args[1] : null;
 
             if (launcherArg is not null)
                 HandleLauncherMode(desktop, launcherArg, _provider);
+            else if (_trayMode)
+                HandleTrayMode(desktop, _provider);
             else
                 HandleConfiguratorMode(desktop, _provider);
 
             RegisterHotkeyIfConfigured();
+            SetupTrayIcon();
 
             desktop.Exit += async (_, _) =>
             {
                 if (_singleInstance is not null)
                     await _singleInstance.DisposeAsync();
                 _hotkeyService?.Dispose();
+                _trayService?.Dispose();
             };
         }
 
@@ -129,6 +137,9 @@ public partial class App : Avalonia.Application
         services.AddSingleton<IHotkeyService>(sp => new HotkeyService(
             sp.GetRequiredService<ILogger>()));
 
+        services.AddSingleton<ITrayIconService>(sp => new TrayIconService(
+            sp.GetRequiredService<ILogger>()));
+
         services.AddSingleton<GroupService>(sp => new GroupService(
             sp.GetRequiredService<IGroupRepository>(),
             sp.GetRequiredService<IIconCacheService>(),
@@ -161,6 +172,87 @@ public partial class App : Avalonia.Application
         {
             DataContext = provider.GetRequiredService<MainWindowViewModel>()
         };
+    }
+
+    private void HandleTrayMode(IClassicDesktopStyleApplicationLifetime desktop, IServiceProvider provider)
+    {
+        // --tray mode: no configurator window. The app lives in the tray.
+        // The tray icon (set up by SetupTrayIcon) provides the entry point.
+        // A hidden dummy window keeps the app alive without a visible main window.
+        desktop.ShutdownMode = ShutdownMode.OnExplicitShutdown;
+    }
+
+    private void SetupTrayIcon()
+    {
+        if (_provider is null) return;
+
+        var settings = _provider.GetRequiredService<LauncherSettingsService>().Load();
+        // Default: show in tray unless explicitly disabled.
+        var showInTray = settings.ShowInTray ?? true;
+        if (!showInTray) return;
+
+        _trayService = _provider.GetRequiredService<ITrayIconService>();
+        _trayService.IconClicked += () => OpenPrimaryGroupFlyout();
+        _trayService.MenuAction += OnTrayMenuAction;
+        _trayService.Show("GroupTasker");
+        RefreshTrayMenu();
+    }
+
+    private async void RefreshTrayMenu()
+    {
+        if (_trayService is null || _provider is null) return;
+
+        var groups = await _provider.GetRequiredService<IGroupRepository>().GetAllAsync();
+        var settings = _provider.GetRequiredService<LauncherSettingsService>().Load();
+        var primaryId = settings.PrimaryGroupId;
+
+        var items = new List<TrayMenuItem>();
+        foreach (var g in groups)
+        {
+            var isChecked = g.Id == primaryId;
+            items.Add(new TrayMenuItem(g.Name, "group:" + g.Id) { IsChecked = isChecked });
+        }
+        if (items.Count > 0)
+            items.Add(new TrayMenuItem("", "")); // separator
+        items.Add(new TrayMenuItem("Open configurator", "open-configurator"));
+        items.Add(new TrayMenuItem("Quit", "quit"));
+
+        _trayService.SetMenu(items);
+    }
+
+    private void OnTrayMenuAction(string actionKey)
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (actionKey == "open-configurator")
+            {
+                // Relaunch the configurator (same exe, no args).
+                var exePath = Environment.ProcessPath;
+                if (exePath is not null)
+                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(exePath) { UseShellExecute = true });
+            }
+            else if (actionKey == "quit")
+            {
+                if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+                    desktop.Shutdown();
+            }
+            else if (actionKey.StartsWith("group:"))
+            {
+                var groupId = actionKey["group:".Length..];
+                if (Guid.TryParse(groupId, out var id) && _provider is not null)
+                {
+                    _ = ShowGroupFlyoutById(id);
+                }
+            }
+        });
+    }
+
+    private async Task ShowGroupFlyoutById(Guid groupId)
+    {
+        if (_provider is null) return;
+        var group = await _provider.GetRequiredService<IGroupRepository>().GetByIdAsync(groupId);
+        if (group is not null)
+            ShowFlyout(group.Name, _provider);
     }
 
     private void RegisterHotkeyIfConfigured()

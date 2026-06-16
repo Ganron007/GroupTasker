@@ -13,4 +13,10 @@ public sealed class LauncherSettings
 
     /// <summary>Global hotkey that opens the primary group. <c>null</c> = hotkey disabled.</summary>
     public HotkeyBinding? PrimaryGroupHotkey { get; set; }
+
+    /// <summary>Show a tray icon while the app is running. <c>null</c> = default true.</summary>
+    public bool? ShowInTray { get; set; }
+
+    /// <summary>Start with Windows, hidden in tray. <c>null</c> = default false.</summary>
+    public bool? StartWithWindows { get; set; }
 }

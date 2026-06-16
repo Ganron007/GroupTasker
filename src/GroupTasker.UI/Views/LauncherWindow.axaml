@@ -19,7 +19,7 @@
     <!-- No Design.DataContext: ctor requires services; designer cannot instantiate it parameterlessly. -->
 
     <Border Background="#1A1A1A"
-            BorderBrush="#3A3A3A"
+            BorderBrush="{Binding AccentColor}"
             BorderThickness="1"
             CornerRadius="6">
         <Grid RowDefinitions="6,Auto,*">

@@ -29,6 +29,7 @@ public partial class LauncherViewModel : ViewModelBase
     [ObservableProperty] private bool _isEmpty;
     [ObservableProperty] private bool _isReorderMode;
     [ObservableProperty] private string _filter = "";
+    [ObservableProperty] private Avalonia.Media.IBrush _accentColor = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#3A3A3A"));
 
     /// <summary>Raised after the <see cref="Shortcuts"/> collection is rebuilt by the filter.
     /// The view listens to this to move keyboard focus to the first visible shortcut.</summary>
@@ -67,6 +68,13 @@ public partial class LauncherViewModel : ViewModelBase
             }
 
             _loadedGroup = group;
+            try
+            {
+                AccentColor = string.IsNullOrWhiteSpace(group.AccentColor)
+                    ? new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#3A3A3A"))
+                    : new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse(group.AccentColor));
+            }
+            catch { AccentColor = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#3A3A3A")); }
 
             _allShortcuts = group.Shortcuts
                 .Where(s => s.IsVisible)

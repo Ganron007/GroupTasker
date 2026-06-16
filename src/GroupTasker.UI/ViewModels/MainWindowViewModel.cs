@@ -1,3 +1,4 @@
+using System;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
@@ -115,6 +116,70 @@ public partial class MainWindowViewModel : ViewModelBase
 
         var settingsVm = new SettingsViewModel(_settingsService, _hotkeyService, _repository, _logger);
         await Views.SettingsDialog.ShowAsync(owner, settingsVm);
+    }
+
+    [RelayCommand]
+    private async Task ExportGroups()
+    {
+        var owner = GetMainWindow();
+        if (owner is null) return;
+        var topLevel = TopLevel.GetTopLevel(owner);
+        if (topLevel is null) return;
+
+        var options = new Avalonia.Platform.Storage.FilePickerSaveOptions
+        {
+            Title = "Export groups",
+            DefaultExtension = "json",
+            SuggestedFileName = "grouptasker-backup",
+            FileTypeChoices =
+            [
+                new Avalonia.Platform.Storage.FilePickerFileType("JSON") { Patterns = ["*.json"] }
+            ]
+        };
+
+        var file = await topLevel.StorageProvider.SaveFilePickerAsync(options);
+        if (file is null) return;
+
+        try
+        {
+            await _groupService.ExportGroupsAsync(file.Path.LocalPath);
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Export failed: {ex.Message}");
+        }
+    }
+
+    [RelayCommand]
+    private async Task ImportGroups()
+    {
+        var owner = GetMainWindow();
+        if (owner is null) return;
+        var topLevel = TopLevel.GetTopLevel(owner);
+        if (topLevel is null) return;
+
+        var options = new Avalonia.Platform.Storage.FilePickerOpenOptions
+        {
+            Title = "Import groups",
+            AllowMultiple = false,
+            FileTypeFilter =
+            [
+                new Avalonia.Platform.Storage.FilePickerFileType("JSON") { Patterns = ["*.json"] }
+            ]
+        };
+
+        var files = await topLevel.StorageProvider.OpenFilePickerAsync(options);
+        if (files is null || files.Count == 0) return;
+
+        try
+        {
+            await _groupService.ImportGroupsAsync(files[0].Path.LocalPath);
+            await LoadGroups();
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Import failed: {ex.Message}");
+        }
     }
 
     public async Task RefreshAll() => await LoadGroups();

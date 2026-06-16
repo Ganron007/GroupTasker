@@ -45,6 +45,16 @@
                            FontSize="11" Foreground="#6A6A6A" TextWrapping="Wrap" />
             </StackPanel>
 
+            <!-- Tray + auto-start -->
+            <StackPanel Spacing="8">
+                <CheckBox IsChecked="{Binding ShowInTray}"
+                          Foreground="White" FontSize="13"
+                          Content="Show tray icon while running" />
+                <CheckBox IsChecked="{Binding StartWithWindows}"
+                          Foreground="White" FontSize="13"
+                          Content="Start with Windows (hidden in tray)" />
+            </StackPanel>
+
             <!-- Error / status -->
             <TextBlock Text="{Binding ErrorMessage}"
                        FontSize="12" Foreground="#FF6666"
