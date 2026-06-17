@@ -31,6 +31,14 @@ there and add a new section at the top of this file for each release.
   for group operations, shortcut launches, icon extraction failures, and named-pipe
   communication errors.
 
+## [1.5.3] — 2026-06-15
+
+### Changed
+
+- **Tray menu: "Open" now shows the configurator in the current process** (the standard tray-app pattern). Previously, "Open configurator" in --tray mode spawned a new process with `--no-tray`. Now the current process creates the `MainWindow` on demand and shows it. One process, one tray icon, one window. Closing the window in tray mode hides to tray (the app keeps running); "Exit" on the tray quits.
+- **Tray menu labels renamed**: "Open configurator" → **"Open"**, "Quit" → **"Exit"** (matches common OS conventions). Action keys (`open-configurator`, `quit`) are unchanged so any external tooling isn't affected.
+- **`MainWindow` `CloseHidesToTray` property** (set by the App when creating the window in tray mode). When true, the window's `Closing` event is cancelled and the window is hidden instead of the app exiting.
+
 ## [1.5.2] — 2026-06-15
 
 ### Fixed

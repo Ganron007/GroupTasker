@@ -34,6 +34,7 @@ public partial class App : Avalonia.Application
     private IHotkeyService? _hotkeyService;
     private ITrayIconService? _trayService;
     private Window? _currentFlyout;
+    private Window? _configuratorWindow;
     private IServiceProvider? _provider;
     private bool _trayMode;
 
@@ -171,10 +172,11 @@ public partial class App : Avalonia.Application
         // No CLI arg = configurator mode. The launcher pipe is *launcher-only*; we don't
         // try to single-instance the configurator (multiple editor sessions are rare and
         // both go through the same atomic repository now).
-        desktop.MainWindow = new MainWindow
+        _configuratorWindow = new MainWindow
         {
             DataContext = provider.GetRequiredService<MainWindowViewModel>()
         };
+        desktop.MainWindow = _configuratorWindow;
     }
 
     private void HandleTrayMode(IClassicDesktopStyleApplicationLifetime desktop, IServiceProvider provider)
@@ -217,8 +219,8 @@ public partial class App : Avalonia.Application
         }
         if (items.Count > 0)
             items.Add(new TrayMenuItem("", "")); // separator
-        items.Add(new TrayMenuItem("Open configurator", "open-configurator"));
-        items.Add(new TrayMenuItem("Quit", "quit"));
+        items.Add(new TrayMenuItem("Open", "open-configurator"));
+        items.Add(new TrayMenuItem("Exit", "quit"));
 
         _trayService.SetMenu(items);
     }
@@ -229,17 +231,7 @@ public partial class App : Avalonia.Application
         {
             if (actionKey == "open-configurator")
             {
-                // Spawn a configurator process that does NOT create its own tray
-                // icon (--no-tray) — otherwise the user would accumulate tray
-                // icons every time they open the configurator from the tray.
-                var exePath = Environment.ProcessPath;
-                if (exePath is not null)
-                {
-                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(exePath, "--no-tray")
-                    {
-                        UseShellExecute = true
-                    });
-                }
+                ShowConfiguratorWindow();
             }
             else if (actionKey == "quit")
             {
@@ -255,6 +247,42 @@ public partial class App : Avalonia.Application
                 }
             }
         });
+    }
+
+    /// <summary>
+    /// Show the configurator window. In tray mode we create + show it in the
+    /// CURRENT process (standard tray-app pattern: no duplicate process, no
+    /// duplicate tray icon). In configurator mode the window already exists
+    /// from startup, so this just brings it to the foreground.
+    /// </summary>
+    private void ShowConfiguratorWindow()
+    {
+        if (_provider is null) return;
+        if (ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime desktop) return;
+
+        if (_configuratorWindow is null)
+        {
+            var mainWindow = new MainWindow
+            {
+                DataContext = _provider.GetRequiredService<MainWindowViewModel>()
+            };
+            // In tray mode, closing the window should hide to tray, not exit the app.
+            // In configurator mode (the user started the app with no args), the
+            // window closes the app as usual.
+            mainWindow.CloseHidesToTray = _trayMode;
+            _configuratorWindow = mainWindow;
+            // In tray mode the ShutdownMode is OnExplicitShutdown, so closing the
+            // window won't exit the app — the user has to click Exit on the tray.
+            // We just need to make sure the window is the active MainWindow so it
+            // shows up and is correctly restored.
+            desktop.MainWindow = _configuratorWindow;
+        }
+
+        if (!_configuratorWindow.IsVisible)
+            _configuratorWindow.Show();
+        _configuratorWindow.Activate();
+        if (_configuratorWindow.WindowState == WindowState.Minimized)
+            _configuratorWindow.WindowState = WindowState.Normal;
     }
 
     private async Task ShowGroupFlyoutById(Guid groupId)
