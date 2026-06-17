@@ -7,6 +7,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 The canonical version lives in `Directory.Build.props` — bump `<VersionPrefix>`
 there and add a new section at the top of this file for each release.
 
+## [1.5.7] - 2026-06-17
+
+### Fixed
+
+- **Tray icon finally works.** v1.5.5 and v1.5.6 both shipped broken
+  tray icons. The `TrayHostForm` was being created on the main thread,
+  so its handle lived on the main thread. `BeginInvoke` from the main
+  thread posted to the main thread's queue (which has no WinForms
+  message pump), so the icon was never actually shown — what users
+  saw was a ghost icon from the v1.5.4 P/Invoke session.
+  In v1.5.7: `TrayHostForm` is now created **on the STA thread**, and
+  `Application.Run(host)` creates the form's handle on the STA thread
+  so cross-thread `BeginInvoke` posts to the right queue.
+  `NotifyIcon.MouseClick` and `MouseDoubleClick` events now dispatch
+  correctly. Left-click → open primary group flyout. Right-click →
+  context menu.
+
+## [1.5.6] - 2026-06-17
+
+### Fixed (attempt #2, still broken)
+
+- Tray icon was visible but clicks did nothing. Tried moving
+  `NotifyIcon` onto a dedicated STA background thread. The
+  `_host = new TrayHostForm()` was still being created on the main
+  thread, so the form's handle ended up on the wrong thread —
+  `BeginInvoke` posted to the main thread's queue, which has no
+  WinForms message pump, so the `Show`/`Hide`/`SetMenu` calls were
+  silently dropped. (This is what v1.5.7 actually fixes.)
+
+## [1.5.5] - 2026-06-17
+
+### Fixed (attempt #1, still broken)
+
+- Replaced the hand-rolled `Shell_NotifyIconW` P/Invoke in `TrayIconService`
+  with `System.Windows.Forms.NotifyIcon`. WinForms handles the P/Invoke
+  (and the hidden message window) internally, which should have been
+  more reliable. But the `NotifyIcon` was created on the Avalonia UI
+  thread, which doesn't have a WinForms message pump, so click events
+  never fired. (This is what v1.5.7 actually fixes.)
+
 ## [Unreleased]
 
 ### Added
