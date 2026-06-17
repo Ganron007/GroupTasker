@@ -1,6 +1,7 @@
 using System;
 using System.Threading.Tasks;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Markup.Xaml;
 using GroupTasker.Domain.Interfaces;
 using GroupTasker.UI.ViewModels;
@@ -12,6 +13,13 @@ public partial class AppPickerDialog : Window
     public AppPickerDialog()
     {
         InitializeComponent();
+    }
+
+    /// <summary>Double-click on an app in the list: add it to the group (same as the Add button).</summary>
+    private void OnAppDoubleTapped(object? sender, TappedEventArgs e)
+    {
+        if (DataContext is AppPickerViewModel vm && vm.SelectedApp is not null)
+            vm.AddCommand.Execute(null);
     }
 
     /// <summary>

@@ -112,16 +112,36 @@ public partial class LauncherViewModel : ViewModelBase
     private void ApplyFilter()
     {
         var filter = Filter?.Trim() ?? "";
-        var matched = string.IsNullOrEmpty(filter)
-            ? _allShortcuts
-            : _allShortcuts.Where(s =>
-                s.Name.Contains(filter, StringComparison.OrdinalIgnoreCase)
-                || (s.DomainShortcut.TargetPath?.Contains(filter, StringComparison.OrdinalIgnoreCase) ?? false));
-
-        Shortcuts = new ObservableCollection<LauncherShortcutViewModel>(matched);
+        Shortcuts = new ObservableCollection<LauncherShortcutViewModel>(
+            string.IsNullOrEmpty(filter)
+                ? _allShortcuts
+                : _allShortcuts.Where(s => MatchesFilter(s, filter)));
         IsEmpty = Shortcuts.Count == 0;
         ShortcutsFiltered?.Invoke(this, EventArgs.Empty);
     }
+
+    /// <summary>
+    /// Word-prefix match: every whitespace-separated word in the filter must
+    /// appear as a prefix of some whitespace-separated word in the name OR
+    /// target path. Matches what users expect from Spotlight / Windows Start
+    /// search / PowerToys Run.
+    /// </summary>
+    private static bool MatchesFilter(LauncherShortcutViewModel s, string filter)
+    {
+        var words = filter.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        var name = s.Name ?? "";
+        var path = s.DomainShortcut.TargetPath ?? "";
+        foreach (var w in words)
+        {
+            if (!HasWordWithPrefix(name, w) && !HasWordWithPrefix(path, w))
+                return false;
+        }
+        return true;
+    }
+
+    private static bool HasWordWithPrefix(string text, string prefix) =>
+        text.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+            .Any(word => word.StartsWith(prefix, StringComparison.OrdinalIgnoreCase));
 
     [RelayCommand]
     private void ClearFilter() => Filter = "";

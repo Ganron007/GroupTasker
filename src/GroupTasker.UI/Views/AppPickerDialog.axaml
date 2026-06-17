@@ -39,7 +39,8 @@
             <ListBox ItemsSource="{Binding Apps}"
                      SelectedItem="{Binding SelectedApp, Mode=TwoWay}"
                      Background="Transparent"
-                     BorderThickness="0">
+                     BorderThickness="0"
+                     DoubleTapped="OnAppDoubleTapped">
                 <ListBox.ItemTemplate>
                     <DataTemplate x:DataType="vm:DiscoveredAppViewModel">
                         <Grid ColumnDefinitions="Auto,*,Auto" Margin="6,4">
@@ -58,6 +59,20 @@
                         </Grid>
                     </DataTemplate>
                 </ListBox.ItemTemplate>
+                <ListBox.ContextMenu>
+                    <ContextMenu>
+                        <MenuItem Header="Add to group"
+                                  Command="{Binding AddCommand}"
+                                  IsEnabled="{Binding SelectedApp, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                        <MenuItem Header="Open file location"
+                                  Command="{Binding OpenFileLocationCommand}"
+                                  CommandParameter="{Binding SelectedApp}" />
+                        <Separator />
+                        <MenuItem Header="Close app"
+                                  Command="{Binding CloseAppCommand}"
+                                  CommandParameter="{Binding SelectedApp}" />
+                    </ContextMenu>
+                </ListBox.ContextMenu>
             </ListBox>
         </Border>
 

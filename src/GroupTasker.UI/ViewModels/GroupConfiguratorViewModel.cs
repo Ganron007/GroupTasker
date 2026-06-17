@@ -27,26 +27,32 @@ public sealed class GroupConfiguratorViewModelFactory
     private readonly ITaskbarEnumerator _taskbarEnumerator;
     private readonly IAppActivator _activator;
     private readonly ILiveAppResolver _liveResolver;
+    private readonly IShellGateway _shell;
+    private readonly ILogger _logger;
 
     public GroupConfiguratorViewModelFactory(
         GroupService groupService,
         IShortcutService shortcutService,
         ITaskbarEnumerator taskbarEnumerator,
         IAppActivator activator,
-        ILiveAppResolver liveResolver)
+        ILiveAppResolver liveResolver,
+        IShellGateway shell,
+        ILogger logger)
     {
         _groupService = groupService;
         _shortcutService = shortcutService;
         _taskbarEnumerator = taskbarEnumerator;
         _activator = activator;
         _liveResolver = liveResolver;
+        _shell = shell;
+        _logger = logger;
     }
 
     public GroupConfiguratorViewModel CreateForNewGroup() =>
-        new(null, _groupService, _shortcutService, _taskbarEnumerator);
+        new(null, _groupService, _shortcutService, _taskbarEnumerator, _shell, _logger);
 
     public GroupConfiguratorViewModel CreateForExisting(Group existing) =>
-        new(existing, _groupService, _shortcutService, _taskbarEnumerator);
+        new(existing, _groupService, _shortcutService, _taskbarEnumerator, _shell, _logger);
 }
 
 public partial class GroupConfiguratorViewModel : ViewModelBase
@@ -54,6 +60,8 @@ public partial class GroupConfiguratorViewModel : ViewModelBase
     private readonly GroupService _groupService;
     private readonly IShortcutService _shortcutService;
     private readonly ITaskbarEnumerator _taskbarEnumerator;
+    private readonly IShellGateway _shell;
+    private readonly ILogger _logger;
     private readonly Group? _editingGroup;
 
     public Group? SavedGroup { get; private set; }
@@ -76,11 +84,15 @@ public partial class GroupConfiguratorViewModel : ViewModelBase
         Group? existingGroup,
         GroupService groupService,
         IShortcutService shortcutService,
-        ITaskbarEnumerator taskbarEnumerator)
+        ITaskbarEnumerator taskbarEnumerator,
+        IShellGateway shell,
+        ILogger logger)
     {
         _groupService = groupService;
         _shortcutService = shortcutService;
         _taskbarEnumerator = taskbarEnumerator;
+        _shell = shell;
+        _logger = logger;
 
         if (existingGroup is not null)
         {
@@ -168,7 +180,7 @@ public partial class GroupConfiguratorViewModel : ViewModelBase
 
             var picker = new AppPickerDialog
             {
-                DataContext = new AppPickerViewModel(apps)
+                DataContext = new AppPickerViewModel(apps, _shell, _logger)
             };
 
             // The dialog returns the selected DiscoveredApp (or null if cancelled)

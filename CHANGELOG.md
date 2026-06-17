@@ -31,6 +31,13 @@ there and add a new section at the top of this file for each release.
   for group operations, shortcut launches, icon extraction failures, and named-pipe
   communication errors.
 
+## [1.5.2] — 2026-06-15
+
+### Fixed
+
+- **Filter: word-prefix match instead of substring.** The flyout and the "Add from running apps" picker used a case-insensitive `Contains` match. Typing `c` returned every app with a `c` anywhere (Calculator, Discord, Spotify, …). Switched to word-prefix match (the same pattern as Spotlight / Windows Start search / PowerToys Run): each whitespace-separated word in the filter must appear as a prefix of some word in the name or path. Typing `c` now shows apps starting with C; `claude` shows apps whose first word starts with `claude` (or whose second word does, e.g. `Claude Desktop` matches `desk`).
+- **AppPickerDialog interactions.** Right-click an app for a context menu (Add / Open file location / Close app). Double-click an app to add it to the group (same as the Add button). `Close app` uses `Process.CloseMainWindow` (with `Kill` fallback after 500 ms) for running apps; `Open file location` reveals the exe's folder in Explorer.
+
 ## [1.5.1] — 2026-06-15
 
 ### Fixed
