@@ -124,62 +124,99 @@ public sealed class TrayIconService : ITrayIconService
 
     private void MessagePumpThread(ManualResetEventSlim ready, CancellationToken ct)
     {
-        _hwnd = CreateWindowEx(
-            0, "Static", "GroupTaskerTray", 0,
-            0, 0, 0, 0,
-            new IntPtr(-3), // HWND_MESSAGE
-            IntPtr.Zero, IntPtr.Zero, IntPtr.Zero);
-
-        if (_hwnd == IntPtr.Zero)
+        try
         {
-            _logger.Error("Failed to create message-only window for tray icon");
+            _hwnd = CreateWindowEx(
+                0, "Static", "GroupTaskerTray", 0,
+                0, 0, 0, 0,
+                new IntPtr(-3), // HWND_MESSAGE
+                IntPtr.Zero, IntPtr.Zero, IntPtr.Zero);
+
+            if (_hwnd == IntPtr.Zero)
+            {
+                var err = Marshal.GetLastWin32Error();
+                _logger.Error("Failed to create message-only window for tray icon (Win32 error {Error})", err);
+                ready.Set();
+                return;
+            }
+
+            // Load icon from the running exe (first icon resource). Wrap in try so a
+            // bad icon resource can't kill the message pump.
+            try
+            {
+                var exePath = Environment.ProcessPath;
+                if (exePath is not null)
+                    _hIcon = ExtractIcon(IntPtr.Zero, exePath, 0);
+                if (_hIcon == IntPtr.Zero || _hIcon == new IntPtr(1))
+                    _hIcon = LoadIcon(IntPtr.Zero, 32512); // IDI_APPLICATION
+            }
+            catch (Exception ex)
+            {
+                _logger.Warning(ex, "Failed to extract tray icon from exe; falling back to default");
+                _hIcon = LoadIcon(IntPtr.Zero, 32512); // IDI_APPLICATION
+            }
+
+            _logger.Information("Tray message window created: HWND={Hwnd}, Icon={Icon}", _hwnd, _hIcon);
+
             ready.Set();
-            return;
-        }
 
-        // Load icon from the running exe (first icon resource).
-        var exePath = Environment.ProcessPath;
-        if (exePath is not null)
-            _hIcon = ExtractIcon(IntPtr.Zero, exePath, 0);
-        if (_hIcon == IntPtr.Zero || _hIcon == new IntPtr(1))
-            _hIcon = LoadIcon(IntPtr.Zero, 32512); // IDI_APPLICATION
-
-        ready.Set();
-
-        while (!ct.IsCancellationRequested)
-        {
-            if (!PeekMessage(out var msg, IntPtr.Zero, 0, 0, 0))
+            // Standard message pump: GetMessage blocks until a message arrives.
+            // No PeekMessage dance — GetMessage handles the wait.
+            // Try-catch is critical: an unhandled exception here would silently kill
+            // the thread, leaving the tray icon visible but completely unresponsive.
+            while (!ct.IsCancellationRequested)
             {
-                Thread.Sleep(15);
-                continue;
-            }
+                int result = GetMessage(out var msg, IntPtr.Zero, 0, 0);
+                if (result <= 0) break; // -1 = error, 0 = WM_QUIT
 
-            if (GetMessage(out msg, IntPtr.Zero, 0, 0) <= 0) break;
-
-            // Tray icon callback: WM_APP + 0
-            if (msg.message == WM_APP + 0 && msg.hwnd == _hwnd)
-            {
-                var mouseMsg = (uint)(msg.lParam.ToInt64() & 0xFFFF);
-                if (mouseMsg == WM_LBUTTONUP)
+                try
                 {
-                    try { IconClicked?.Invoke(); }
-                    catch (Exception ex) { _logger.Error(ex, "TrayIcon IconClicked handler threw"); }
+                    // Tray icon callback: WM_APP + 0 (set in uCallbackMessage)
+                    if (msg.message == WM_APP + 0 && msg.hwnd == _hwnd)
+                    {
+                        var mouseMsg = (uint)(msg.lParam.ToInt64() & 0xFFFF);
+                        _logger.Debug("Tray callback: msg=0x{Message:X4} lParam=0x{LParam:X8} mouse=0x{Mouse:X4}",
+                            msg.message, msg.lParam.ToInt64(), mouseMsg);
+                        switch (mouseMsg)
+                        {
+                            case WM_LBUTTONUP:
+                                try { IconClicked?.Invoke(); }
+                                catch (Exception ex) { _logger.Error(ex, "IconClicked handler threw"); }
+                                break;
+                            case WM_RBUTTONUP:
+                                ShowContextMenu();
+                                break;
+                            case 0x0203: // WM_LBUTTONDBLCLK
+                                // Treat double-click as a click; user's IconClicked handler fires.
+                                try { IconClicked?.Invoke(); }
+                                catch (Exception ex) { _logger.Error(ex, "IconClicked (dblclk) handler threw"); }
+                                break;
+                        }
+                    }
+                    else
+                    {
+                        TranslateMessage(ref msg);
+                        DispatchMessage(ref msg);
+                    }
                 }
-                else if (mouseMsg == WM_RBUTTONUP)
+                catch (Exception ex)
                 {
-                    ShowContextMenu();
+                    _logger.Error(ex, "Exception while processing tray message 0x{Message:X4}", msg.message);
+                    // Don't break the loop — keep going.
                 }
-                continue;
             }
-
-            TranslateMessage(ref msg);
-            DispatchMessage(ref msg);
         }
-
-        if (_hwnd != IntPtr.Zero)
+        catch (Exception ex)
         {
-            DestroyWindow(_hwnd);
-            _hwnd = IntPtr.Zero;
+            _logger.Error(ex, "Tray message pump crashed");
+        }
+        finally
+        {
+            if (_hwnd != IntPtr.Zero)
+            {
+                try { DestroyWindow(_hwnd); } catch { /* ignore */ }
+                _hwnd = IntPtr.Zero;
+            }
         }
     }
 
@@ -265,6 +302,16 @@ public sealed class TrayIconService : ITrayIconService
 
     // --- Win32 structs + P/Invoke ---
 
+    /// <summary>
+    /// Win32 NOTIFYICONDATAW (Unicode). The field order and size must match the
+    /// OS's expectation for the current Windows version, or
+    /// <c>Shell_NotifyIcon</c> will fail silently. We include all fields up
+    /// to and including <c>hBalloonIcon</c> (the last field added in Windows
+    /// Vista). We use a fixed <c>uTimeout</c> (which sits between
+    /// <c>szInfo</c> and <c>szInfoTitle</c>) and add <c>guidItem</c> +
+    /// <c>hBalloonIcon</c> so the struct is large enough for the OS to accept
+    /// it without truncating.
+    /// </summary>
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
     private struct NOTIFYICONDATA
     {
@@ -280,10 +327,12 @@ public sealed class TrayIconService : ITrayIconService
         public uint dwStateMask;
         [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 256)]
         public string szInfo;
-        public uint uVersion;
+        public uint uTimeout;
         [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 64)]
         public string szInfoTitle;
         public uint dwInfoFlags;
+        public Guid guidItem;
+        public IntPtr hBalloonIcon;
     }
 
     [StructLayout(LayoutKind.Sequential)]

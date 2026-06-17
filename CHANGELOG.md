@@ -31,6 +31,12 @@ there and add a new section at the top of this file for each release.
   for group operations, shortcut launches, icon extraction failures, and named-pipe
   communication errors.
 
+## [1.5.4] — 2026-06-15
+
+### Fixed
+
+- **Tray icon: window's `uCallbackMessage` clicks were being lost (the thread was eating exceptions).** The `MessagePumpThread` in `TrayIconService` had no `try`/`catch`, so any exception in `ExtractIcon` (e.g. a malformed icon resource in the running exe) would silently kill the pump thread — leaving the tray icon *visible* but completely unresponsive to left/right/double-click. Wrapped the entire pump in a `try`/`catch` and added per-message protection so a single bad message can't tear down the loop. Also fixed the `NOTIFYICONDATA` struct to include the missing `uTimeout`, `guidItem`, and `hBalloonIcon` fields (Windows 10/11 expects these and can reject the call without them). Added debug-level logging on every tray callback so a stuck state is now diagnosable from the Serilog file. Double-click now also fires `IconClicked`.
+
 ## [1.5.3] — 2026-06-15
 
 ### Changed
