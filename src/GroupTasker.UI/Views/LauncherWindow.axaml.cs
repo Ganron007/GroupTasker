@@ -28,28 +28,15 @@ public partial class LauncherWindow : Window
         Deactivated += OnDeactivated;
         KeyDown += OnKeyDown;
         Opened += OnOpened;
-        DataContextChanged += OnDataContextChanged;
-    }
-
-    private void OnDataContextChanged(object? sender, EventArgs e)
-    {
-        if (DataContext is LauncherViewModel vm)
-            vm.ShortcutsFiltered += OnShortcutsFiltered;
-    }
-
-    private void OnShortcutsFiltered(object? sender, EventArgs e)
-    {
-        // If the focused control is one of the shortcut borders, move focus to the
-        // new first item so the user can keep arrow-navigating after the filter changed.
-        Dispatcher.UIThread.Post(() =>
-        {
-            if (DataContext is LauncherViewModel { Filter: { Length: > 0 } } && ShortcutsItemsControl.Items.Count > 0)
-                FocusShortcutAt(0);
-        }, DispatcherPriority.Input);
     }
 
     private void OnOpened(object? sender, EventArgs e)
     {
+        // Focus the filter textbox so the user can immediately type to search.
+        // Crucially, we do NOT re-focus on every filter change — that would steal
+        // focus from the textbox on every keystroke and force the user to click
+        // back into it to continue typing. The textbox keeps focus while typing;
+        // Down arrow moves focus into the shortcut grid.
         Dispatcher.UIThread.Post(() => FilterTextBox.Focus(), DispatcherPriority.Input);
     }
 

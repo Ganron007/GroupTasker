@@ -31,6 +31,12 @@ there and add a new section at the top of this file for each release.
   for group operations, shortcut launches, icon extraction failures, and named-pipe
   communication errors.
 
+## [1.5.1] — 2026-06-15
+
+### Fixed
+
+- **Flyout filter focus stealing.** When typing in the flyout's filter textbox, every keystroke would move focus to the first matching shortcut, forcing the user to click back into the textbox to keep typing. The TextBox now keeps focus while typing. Down/Enter behaviour in the TextBox is unchanged: Down moves focus to the first match, Enter launches it.
+
 ## [1.5.0] — 2026-06-15
 
 ### Added
