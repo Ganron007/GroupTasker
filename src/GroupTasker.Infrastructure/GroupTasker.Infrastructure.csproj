@@ -4,6 +4,10 @@
     <TargetFramework>net9.0-windows</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <!-- Enable WinForms so TrayIconService can use System.Windows.Forms.NotifyIcon.
+         The infrastructure project is Windows-only and has no UI of its own;
+         this only brings in the NotifyIcon + ContextMenuStrip types. -->
+    <UseWindowsForms>true</UseWindowsForms>
   </PropertyGroup>
 
   <ItemGroup>
