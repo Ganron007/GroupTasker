@@ -13,31 +13,25 @@ namespace GroupTasker.Infrastructure.Shell;
 /// System tray icon backed by WinForms <see cref="NotifyIcon"/>, hosted on
 /// a dedicated STA thread that runs its own WinForms message loop.
 ///
-/// Why a dedicated thread? NotifyIcon is a WinForms component and needs
-/// a WinForms message pump on the thread that owns it. Avalonia's UI
-/// dispatcher does NOT provide a WinForms message pump, so a NotifyIcon
-/// created on the Avalonia UI thread receives no callbacks and appears
-/// "dead" (visible but click events go nowhere). The proven fix is to
-/// create the icon on a separate STA thread that calls Application.Run().
-///
-/// Threading contract:
-///   - Public Show/Hide/SetMenu/SetTooltip marshal to the tray thread via
-///     BeginInvoke on a hidden helper form.
-///   - IconClicked / MenuAction events fire on the tray thread; subscribers
-///     must marshal to their own UI thread (the App already does this).
+/// The host form is created ON the STA thread (not the main thread) so its
+/// handle lives there. This is the critical bit: <see cref="Form.BeginInvoke"/>
+/// posts to whichever thread owns the form's handle, so if the form's handle
+/// is on the main thread (which has no WinForms message pump) the posted
+/// messages are silently dropped and the icon never becomes visible.
+/// <see cref="Application.Run(Form)"/> creates the handle on the calling thread
+/// and pumps messages for it, so clicks on the NotifyIcon are dispatched.
 /// </summary>
 public sealed class TrayIconService : ITrayIconService, IDisposable
 {
     private readonly ILogger _logger;
     private readonly Thread _thread;
-    private readonly TrayHostForm _host;
     private readonly ManualResetEventSlim _ready = new();
+    private volatile Form? _host;
+    private volatile bool _disposed;
 
     public TrayIconService(ILogger? logger = null)
     {
         _logger = logger ?? NullLogger.Instance;
-
-        _host = new TrayHostForm();
 
         _thread = new Thread(MessageLoop)
         {
@@ -47,12 +41,10 @@ public sealed class TrayIconService : ITrayIconService, IDisposable
         _thread.SetApartmentState(ApartmentState.STA);
         _thread.Start();
 
-        // Block until the tray thread has built the NotifyIcon. This guards
-        // against races where Show() is called immediately after construction.
+        // Block until the STA thread has built the form + NotifyIcon, so the
+        // public methods below can rely on _host being non-null.
         if (!_ready.Wait(TimeSpan.FromSeconds(5)))
-        {
             _logger.Warning("Tray icon thread failed to initialise within 5 seconds");
-        }
     }
 
     public event Action? IconClicked;
@@ -60,36 +52,41 @@ public sealed class TrayIconService : ITrayIconService, IDisposable
 
     public void Show(string tooltipText)
     {
-        if (_host.IsDisposed) return;
+        var host = _host as TrayHostForm;
+        if (_disposed || host is null || host.IsDisposed) return;
         var safe = tooltipText ?? "GroupTasker";
         var text = safe.Length > 63 ? safe[..63] : safe;
-        _host.BeginInvoke(() => _host.ShowIcon(text));
+        host.BeginInvoke(() => host.SetTrayIcon(text));
     }
 
     public void Hide()
     {
-        if (_host.IsDisposed) return;
-        _host.BeginInvoke(() => _host.HideIcon());
+        var host = _host as TrayHostForm;
+        if (host is null || host.IsDisposed) return;
+        host.BeginInvoke(() => host.HideTrayIcon());
     }
 
     public void SetTooltip(string tooltipText) => Show(tooltipText);
 
     public void SetMenu(IReadOnlyList<TrayMenuItem> items)
     {
-        if (_host.IsDisposed) return;
-        // Snapshot to a local list because the items list may be reused.
+        var host = _host as TrayHostForm;
+        if (host is null || host.IsDisposed) return;
         var snapshot = items.ToList();
-        _host.BeginInvoke(() => _host.SetMenu(snapshot));
+        host.BeginInvoke(() => host.SetTrayMenu(snapshot));
     }
 
     public void Dispose()
     {
-        if (_host.IsDisposed) return;
+        if (_disposed) return;
+        _disposed = true;
+        var host = _host as TrayHostForm;
+        if (host is null || host.IsDisposed) return;
         try
         {
-            _host.BeginInvoke(() =>
+            host.BeginInvoke(() =>
             {
-                _host.ShutdownIcon();
+                host.ShutdownTrayIcon();
                 Application.ExitThread();
             });
         }
@@ -103,21 +100,29 @@ public sealed class TrayIconService : ITrayIconService, IDisposable
     {
         try
         {
-            _logger.Information("Tray icon STA thread starting (id={Id})", Thread.CurrentThread.ManagedThreadId);
+            _logger.Information("Tray icon STA thread starting (id={ThreadId})", Thread.CurrentThread.ManagedThreadId);
 
-            // Initialise WinForms on this thread. EnableVisualStyles has no
-            // effect on a non-visual icon but is cheap to call.
             Application.EnableVisualStyles();
-            Application.SetCompatibleTextRenderingDefault(false);
             Application.OleRequired();
 
-            // Initialise the icon (creates the hidden message window + NotifyIcon).
-            _host.Initialize(() => IconClicked?.Invoke(), key => MenuAction?.Invoke(key));
+            // Create the form ON this STA thread. Application.Run(form) below
+            // creates the form's handle on this same thread, so cross-thread
+            // BeginInvoke posts to this thread's message queue (which IS being
+            // pumped by Application.Run).
+            var host = new TrayHostForm();
+            host.Initialize(() => IconClicked?.Invoke(), key => MenuAction?.Invoke(key));
+            _host = host;
+
+            _logger.Information("Tray icon ready: form={FormHandle} icon={IconHandle}",
+                host.Handle, host.IconHandle);
+
             _ready.Set();
 
-            // Run a WinForms message loop on this STA thread. The loop exits
-            // when Application.ExitThread() is called from Dispose().
-            Application.Run();
+            // Application.Run(form) creates the form's handle on this thread
+            // and pumps messages for the thread. The NotifyIcon's hidden
+            // message window is also on this thread, so its callbacks are
+            // dispatched correctly.
+            Application.Run(host);
 
             _logger.Information("Tray icon STA thread exiting");
         }
@@ -125,18 +130,14 @@ public sealed class TrayIconService : ITrayIconService, IDisposable
         {
             _logger.Error(ex, "Tray icon STA thread crashed");
         }
-        finally
-        {
-            _host.Dispose();
-        }
     }
 }
 
 /// <summary>
-/// Hidden form that hosts the NotifyIcon. Lives on the dedicated STA thread
-/// and is the Invoke target for all tray service calls. The form is never
-/// shown; it exists only to provide a message-pump root and a thread-affine
-/// Control for BeginInvoke.
+/// Hidden form that hosts the NotifyIcon. The form is never <see cref="Form.Show"/>n;
+/// it exists only to provide a thread-affine <see cref="Control"/> for
+/// <see cref="Control.BeginInvoke"/> and to serve as the message-pump root
+/// for <see cref="Application.Run(Form)"/>.
 /// </summary>
 internal sealed class TrayHostForm : Form
 {
@@ -146,16 +147,16 @@ internal sealed class TrayHostForm : Form
     private Action<string>? _onMenuAction;
     private readonly Dictionary<ToolStripMenuItem, string> _actionKeys = new();
 
+    public IntPtr IconHandle => _icon?.Icon?.Handle ?? IntPtr.Zero;
+
     public TrayHostForm()
     {
-        // No-show invisible form. FormBorderStyle=None + ShowInTaskbar=false
-        // + Opacity=0 keeps it completely out of the way.
         FormBorderStyle = FormBorderStyle.None;
         ShowInTaskbar = false;
         Opacity = 0;
         Width = Height = 0;
         StartPosition = FormStartPosition.Manual;
-        Location = new System.Drawing.Point(-32000, -32000);
+        Location = new Point(-32000, -32000);
     }
 
     public void Initialize(Action onClick, Action<string> onMenuAction)
@@ -163,30 +164,10 @@ internal sealed class TrayHostForm : Form
         _onClick = onClick;
         _onMenuAction = onMenuAction;
 
-        // Load icon: try the running exe's embedded icon, fall back to system app icon.
-        Icon trayIcon;
-        try
-        {
-            var path = Environment.ProcessPath;
-            if (!string.IsNullOrEmpty(path))
-            {
-                var extracted = Icon.ExtractAssociatedIcon(path);
-                trayIcon = extracted ?? SystemIcons.Application;
-            }
-            else
-            {
-                trayIcon = SystemIcons.Application;
-            }
-        }
-        catch
-        {
-            trayIcon = SystemIcons.Application;
-        }
-
         _menu = new ContextMenuStrip();
         _icon = new NotifyIcon
         {
-            Icon = trayIcon,
+            Icon = LoadIcon(),
             Visible = false,
             Text = "GroupTasker",
         };
@@ -195,7 +176,7 @@ internal sealed class TrayHostForm : Form
             if (e.Button == MouseButtons.Left)
             {
                 try { _onClick?.Invoke(); }
-                catch (Exception) { /* swallowed on purpose; logged in caller */ }
+                catch (Exception ex) { System.Diagnostics.Debug.WriteLine(ex); }
             }
         };
         _icon.MouseDoubleClick += (_, e) =>
@@ -203,26 +184,26 @@ internal sealed class TrayHostForm : Form
             if (e.Button == MouseButtons.Left)
             {
                 try { _onClick?.Invoke(); }
-                catch (Exception) { /* swallowed on purpose; logged in caller */ }
+                catch (Exception ex) { System.Diagnostics.Debug.WriteLine(ex); }
             }
         };
         _icon.ContextMenuStrip = _menu;
     }
 
-    public new void ShowIcon(string tooltip)
+    public void SetTrayIcon(string tooltip)
     {
         if (_icon is null) return;
         _icon.Text = tooltip;
         _icon.Visible = true;
     }
 
-    public void HideIcon()
+    public void HideTrayIcon()
     {
         if (_icon is null) return;
         _icon.Visible = false;
     }
 
-    public void ShutdownIcon()
+    public void ShutdownTrayIcon()
     {
         if (_icon is null) return;
         _icon.Visible = false;
@@ -232,7 +213,7 @@ internal sealed class TrayHostForm : Form
         _menu = null;
     }
 
-    public void SetMenu(IReadOnlyList<TrayMenuItem> items)
+    public void SetTrayMenu(IReadOnlyList<TrayMenuItem> items)
     {
         if (_menu is null) return;
 
@@ -253,7 +234,7 @@ internal sealed class TrayHostForm : Form
             item.Click += (_, _) =>
             {
                 try { _onMenuAction?.Invoke(key); }
-                catch (Exception) { /* swallowed on purpose */ }
+                catch (Exception ex) { System.Diagnostics.Debug.WriteLine(ex); }
             };
             _actionKeys[item] = key;
             _menu.Items.Add(item);
@@ -262,12 +243,11 @@ internal sealed class TrayHostForm : Form
         if (groups.Count > 0)
             _menu.Items.Add(new ToolStripSeparator());
 
-        // Fixed trailing items: Open configurator, Exit.
         var openItem = new ToolStripMenuItem("Open");
         openItem.Click += (_, _) =>
         {
             try { _onMenuAction?.Invoke("open-configurator"); }
-            catch (Exception) { /* swallowed on purpose */ }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine(ex); }
         };
         _menu.Items.Add(openItem);
 
@@ -275,10 +255,25 @@ internal sealed class TrayHostForm : Form
         exitItem.Click += (_, _) =>
         {
             try { _onMenuAction?.Invoke("quit"); }
-            catch (Exception) { /* swallowed on purpose */ }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine(ex); }
         };
         _menu.Items.Add(exitItem);
 
         _menu.ResumeLayout();
+    }
+
+    private static Icon LoadIcon()
+    {
+        try
+        {
+            var path = Environment.ProcessPath;
+            if (!string.IsNullOrEmpty(path))
+            {
+                var extracted = Icon.ExtractAssociatedIcon(path);
+                if (extracted is not null) return extracted;
+            }
+        }
+        catch { /* fall through */ }
+        return SystemIcons.Application;
     }
 }
