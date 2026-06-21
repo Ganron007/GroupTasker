@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 The canonical version lives in `Directory.Build.props` — bump `<VersionPrefix>`
 there and add a new section at the top of this file for each release.
 
+## [1.5.8] - 2026-06-21
+
+### Fixed
+
+- **Flyout right-click context menu items were all disabled (greyed out).**
+  Open file location / Edit shortcut / Copy path / Properties / Remove from
+  group all appeared in the menu but were unclickable.
+  Root cause: the `ContextMenu` in Avalonia opens in a popup that is
+  detached from the visual tree. The `$parent[ItemsControl]` bindings used
+  in `LauncherWindow.axaml` to reach the `LauncherViewModel` commands could
+  not traverse the popup boundary, so every command binding resolved to
+  `null` and Avalonia disabled the items.
+  Fix: pass the parent `LauncherViewModel` reference into each
+  `LauncherShortcutViewModel`, expose the five commands (OpenFileLocation,
+  EditShortcut, CopyPath, ShowProperties, RemoveFromGroup) as properties on
+  the item VM, and change the XAML to bind directly to
+  `{Binding OpenFileLocationCommand}` etc. — the item's own DataContext,
+  no visual-tree traversal needed.
+
 ## [1.5.7] - 2026-06-17
 
 ### Fixed
