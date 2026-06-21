@@ -66,20 +66,20 @@
                                 <Border.ContextMenu>
                                     <ContextMenu>
                                         <MenuItem Header="Open file location"
-                                                  Command="{Binding $parent[ItemsControl].((vm:LauncherViewModel)DataContext).OpenFileLocationCommand}"
+                                                  Command="{Binding OpenFileLocationCommand}"
                                                   CommandParameter="{Binding}" />
                                         <MenuItem Header="Edit shortcut"
-                                                  Command="{Binding $parent[ItemsControl].((vm:LauncherViewModel)DataContext).EditShortcutCommand}"
+                                                  Command="{Binding EditShortcutCommand}"
                                                   CommandParameter="{Binding}" />
                                         <MenuItem Header="Copy path"
-                                                  Command="{Binding $parent[ItemsControl].((vm:LauncherViewModel)DataContext).CopyPathCommand}"
+                                                  Command="{Binding CopyPathCommand}"
                                                   CommandParameter="{Binding}" />
                                         <MenuItem Header="Properties"
-                                                  Command="{Binding $parent[ItemsControl].((vm:LauncherViewModel)DataContext).ShowPropertiesCommand}"
+                                                  Command="{Binding ShowPropertiesCommand}"
                                                   CommandParameter="{Binding}" />
                                         <Separator />
                                         <MenuItem Header="Remove from group"
-                                                  Command="{Binding $parent[ItemsControl].((vm:LauncherViewModel)DataContext).RemoveFromGroupCommand}"
+                                                  Command="{Binding RemoveFromGroupCommand}"
                                                   CommandParameter="{Binding}" />
                                     </ContextMenu>
                                 </Border.ContextMenu>

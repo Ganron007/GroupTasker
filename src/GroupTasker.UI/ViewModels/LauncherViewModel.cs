@@ -79,7 +79,7 @@ public partial class LauncherViewModel : ViewModelBase
             _allShortcuts = group.Shortcuts
                 .Where(s => s.IsVisible)
                 .OrderBy(s => s.SortOrder)
-                .Select(s => new LauncherShortcutViewModel(s, _shortcutService))
+                .Select(s => new LauncherShortcutViewModel(s, _shortcutService, this))
                 .ToList();
 
             ApplyFilter();
@@ -261,6 +261,7 @@ public partial class LauncherViewModel : ViewModelBase
 public partial class LauncherShortcutViewModel : ViewModelBase
 {
     private readonly IShortcutService _shortcutService;
+    private readonly LauncherViewModel? _parent;
 
     public Shortcut DomainShortcut { get; }
 
@@ -269,6 +270,18 @@ public partial class LauncherShortcutViewModel : ViewModelBase
 
     public bool IsDead { get; private set; }
     public double IconOpacity => IsDead ? 0.35 : 1.0;
+
+    /// <summary>
+    /// Commands delegated from the parent <see cref="LauncherViewModel"/>.
+    /// Exposed here so the ContextMenu (which lives in a popup detached from
+    /// the visual tree) can bind directly to the item's DataContext without
+    /// needing $parent[ItemsControl] traversal that fails across popup boundaries.
+    /// </summary>
+    public CommunityToolkit.Mvvm.Input.IRelayCommand? OpenFileLocationCommand => _parent?.OpenFileLocationCommand;
+    public CommunityToolkit.Mvvm.Input.IRelayCommand? EditShortcutCommand => _parent?.EditShortcutCommand;
+    public CommunityToolkit.Mvvm.Input.IRelayCommand? CopyPathCommand => _parent?.CopyPathCommand;
+    public CommunityToolkit.Mvvm.Input.IRelayCommand? ShowPropertiesCommand => _parent?.ShowPropertiesCommand;
+    public CommunityToolkit.Mvvm.Input.IRelayCommand? RemoveFromGroupCommand => _parent?.RemoveFromGroupCommand;
 
     public string TooltipText
     {
@@ -282,10 +295,11 @@ public partial class LauncherShortcutViewModel : ViewModelBase
         }
     }
 
-    public LauncherShortcutViewModel(Shortcut shortcut, IShortcutService shortcutService)
+    public LauncherShortcutViewModel(Shortcut shortcut, IShortcutService shortcutService, LauncherViewModel? parent = null)
     {
         DomainShortcut = shortcut;
         _shortcutService = shortcutService;
+        _parent = parent;
         _name = shortcut.DisplayName;
 
         CheckIfDead();
