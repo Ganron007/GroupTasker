@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 The canonical version lives in `Directory.Build.props` — bump `<VersionPrefix>`
 there and add a new section at the top of this file for each release.
 
+## [1.6.1] - 2026-06-26
+
+### Fixed
+
+- **Drag-and-drop didn't actually move items in v1.6.0.** The visual
+  feedback worked (item followed cursor, drop indicator showed), but
+  `CleanupDrag()` cleared `_draggedItem` **before** `MoveToIndex` was
+  called, so `MoveToIndex(null, index)` was a no-op and the order never
+  changed. Move now happens before cleanup.
+
 ## [1.6.0] - 2026-06-26
 
 ### Fixed

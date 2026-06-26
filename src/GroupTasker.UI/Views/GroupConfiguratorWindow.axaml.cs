@@ -98,11 +98,11 @@ public partial class GroupConfiguratorWindow : Window
             dropIndex = CalculateDropIndex(dropPoint);
         }
 
-        CleanupDrag();
-
+        // Move BEFORE cleanup — cleanup clears _draggedItem.
         if (dropIndex >= 0 && DataContext is GroupConfiguratorViewModel vm)
             vm.MoveToIndex(_draggedItem, dropIndex);
 
+        CleanupDrag();
         e.Handled = true;
     }
 
