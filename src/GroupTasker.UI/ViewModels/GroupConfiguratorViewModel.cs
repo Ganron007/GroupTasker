@@ -237,6 +237,7 @@ public partial class GroupConfiguratorViewModel : ViewModelBase
     {
         var oldIndex = Shortcuts.IndexOf(shortcut);
         if (oldIndex < 0) return;
+        // newIndex can be Count (drop after last item) — clamp to last valid slot.
         var clamped = Math.Clamp(newIndex, 0, Shortcuts.Count - 1);
         if (oldIndex != clamped)
             Shortcuts.Move(oldIndex, clamped);

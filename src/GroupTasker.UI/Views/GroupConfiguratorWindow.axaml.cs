@@ -3,6 +3,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Presenters;
 using Avalonia.Input;
+using Avalonia.Media;
 using GroupTasker.UI.ViewModels;
 
 namespace GroupTasker.UI.Views;
@@ -12,7 +13,9 @@ public partial class GroupConfiguratorWindow : Window
     private bool _isDragging;
     private Point _dragStartPoint;
     private ShortcutViewModel? _draggedItem;
-    private const double DragThreshold = 8.0;
+    private ContentPresenter? _draggedContainer;
+    private int _lastDropIndex = -1;
+    private const double DragThreshold = 5.0;
 
     public GroupConfiguratorWindow()
     {
@@ -27,12 +30,10 @@ public partial class GroupConfiguratorWindow : Window
 
     // ── Drag-and-drop reorder ───────────────────────────────────────
     //
-    // Design: the item is NOT moved during drag.  Instead we dim it,
-    // track the pointer, and move it to the final target index on
-    // release.  This avoids the stale-container-reference bug that
-    // occurred when MoveToIndex was called mid-drag (Avalonia recycles
-    // ContentPresenters after a collection change, so _draggedBorder
-    // ended up pointing at the wrong item).
+    // UX: grab an item → it visually follows the cursor (TranslateTransform
+    // on the container) → a blue drop-indicator line shows exactly where it
+    // will land → release to drop. The collection is NOT modified during
+    // drag so there are no stale container references.
 
     private void OnShortcutPointerPressed(object? sender, PointerPressedEventArgs e)
     {
@@ -42,7 +43,14 @@ public partial class GroupConfiguratorWindow : Window
 
         _dragStartPoint = e.GetPosition(ShortcutsItemsControl);
         _draggedItem = vm;
+
+        var index = ShortcutsItemsControl.Items.IndexOf(vm);
+        _draggedContainer = index >= 0
+            ? ShortcutsItemsControl.ContainerFromIndex(index) as ContentPresenter
+            : null;
+
         _isDragging = false;
+        _lastDropIndex = -1;
 
         e.Handled = true;
     }
@@ -63,50 +71,100 @@ public partial class GroupConfiguratorWindow : Window
         if (!_isDragging && (Math.Abs(diff.X) > DragThreshold || Math.Abs(diff.Y) > DragThreshold))
         {
             _isDragging = true;
-            SetItemOpacity(_draggedItem, 0.3);
+            StartDragVisual();
         }
 
         if (_isDragging)
+        {
+            // Item follows the cursor
+            if (_draggedContainer is not null)
+                _draggedContainer.RenderTransform = new TranslateTransform(0, diff.Y);
+
+            // Update the blue drop-indicator line
+            UpdateDropIndicator(currentPoint);
+
             e.Handled = true;
+        }
     }
 
     private void OnShortcutPointerReleased(object? sender, PointerReleasedEventArgs e)
     {
         if (_draggedItem is null) return;
 
+        var dropIndex = -1;
         if (_isDragging)
         {
             var dropPoint = e.GetPosition(ShortcutsItemsControl);
-            var dropIndex = CalculateDropIndex(dropPoint);
-
-            if (DataContext is GroupConfiguratorViewModel vm)
-                vm.MoveToIndex(_draggedItem, dropIndex);
+            dropIndex = CalculateDropIndex(dropPoint);
         }
 
         CleanupDrag();
+
+        if (dropIndex >= 0 && DataContext is GroupConfiguratorViewModel vm)
+            vm.MoveToIndex(_draggedItem, dropIndex);
+
         e.Handled = true;
+    }
+
+    private void StartDragVisual()
+    {
+        if (_draggedContainer is null) return;
+        _draggedContainer.Opacity = 0.7;
+        _draggedContainer.ZIndex = 100;
+    }
+
+    private void UpdateDropIndicator(Point point)
+    {
+        var dropIndex = CalculateDropIndex(point);
+        if (dropIndex == _lastDropIndex) return;
+        _lastDropIndex = dropIndex;
+
+        var items = ShortcutsItemsControl.Items;
+        var count = items.Count;
+
+        // Position the indicator above the target item, or below the last.
+        double y;
+        if (dropIndex >= count && count > 0)
+        {
+            if (ShortcutsItemsControl.ContainerFromIndex(count - 1) is ContentPresenter last)
+                y = last.Bounds.Bottom;
+            else
+                y = point.Y;
+        }
+        else if (dropIndex >= 0 &&
+                 ShortcutsItemsControl.ContainerFromIndex(dropIndex) is ContentPresenter target)
+        {
+            y = target.Bounds.Top;
+        }
+        else
+        {
+            DropIndicator.IsVisible = false;
+            return;
+        }
+
+        DropIndicator.Margin = new Thickness(0, y - 2, 0, 0);
+        DropIndicator.IsVisible = true;
     }
 
     private void CleanupDrag()
     {
-        if (_draggedItem is not null)
-            SetItemOpacity(_draggedItem, 1.0);
+        if (_draggedContainer is not null)
+        {
+            _draggedContainer.Opacity = 1.0;
+            _draggedContainer.ZIndex = 0;
+            _draggedContainer.RenderTransform = null;
+        }
+        DropIndicator.IsVisible = false;
+        _lastDropIndex = -1;
+        _draggedContainer = null;
         _isDragging = false;
         _draggedItem = null;
     }
 
-    private void SetItemOpacity(ShortcutViewModel item, double opacity)
-    {
-        var index = ShortcutsItemsControl.Items.IndexOf(item);
-        if (index < 0) return;
-        if (ShortcutsItemsControl.ContainerFromIndex(index) is ContentPresenter container)
-            container.Opacity = opacity;
-    }
-
     /// <summary>
-    /// Walk the list top-to-bottom and return the index of the first item
-    /// whose vertical midpoint is below the pointer.  If the pointer is
-    /// below all items, return the last index.
+    /// Walk the list top-to-bottom. Return the index of the first item whose
+    /// vertical midpoint is below the pointer. If the pointer is below all
+    /// midpoints, return <see cref="Items.Count"/> (drop after the last item).
     /// </summary>
     private int CalculateDropIndex(Point point)
     {
@@ -122,6 +180,6 @@ public partial class GroupConfiguratorWindow : Window
                 return i;
         }
 
-        return items.Count - 1;
+        return items.Count;
     }
 }

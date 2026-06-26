@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 The canonical version lives in `Directory.Build.props` — bump `<VersionPrefix>`
 there and add a new section at the top of this file for each release.
 
+## [1.6.0] - 2026-06-26
+
+### Fixed
+
+- **Drag-and-drop reorder was invisible.** After v1.5.9 made it work for
+  any distance, the user still couldn't see what was happening — the item
+  just dimmed and snapped on release.
+  Now: the item visually follows the cursor (TranslateTransform on the
+  container), a semi-transparent state shows it is being dragged, and a
+  blue drop-indicator line shows the exact insertion point. The
+  collection is still not modified until release, so there are no stale
+  container references.
+
 ## [1.5.9] - 2026-06-26
 
 ### Fixed

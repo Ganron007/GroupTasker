@@ -70,17 +70,18 @@
             </StackPanel>
 
             <ScrollViewer Grid.Row="1">
-                <ItemsControl ItemsSource="{Binding Shortcuts}"
-                              Name="ShortcutsItemsControl">
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate x:DataType="vm:ShortcutViewModel">
-                            <Border Background="#252525" CornerRadius="4"
-                                    Padding="12,8" Margin="0,0,0,6"
-                                    Name="ShortcutBorder"
-                                    Tag="{Binding}"
-                                    PointerPressed="OnShortcutPointerPressed"
-                                    PointerMoved="OnShortcutPointerMoved"
-                                    PointerReleased="OnShortcutPointerReleased">
+                <Grid>
+                    <ItemsControl ItemsSource="{Binding Shortcuts}"
+                                  Name="ShortcutsItemsControl">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:ShortcutViewModel">
+                                <Border Background="#252525" CornerRadius="4"
+                                        Padding="12,8" Margin="0,0,0,6"
+                                        Name="ShortcutBorder"
+                                        Tag="{Binding}"
+                                        PointerPressed="OnShortcutPointerPressed"
+                                        PointerMoved="OnShortcutPointerMoved"
+                                        PointerReleased="OnShortcutPointerReleased">
                                 <Grid ColumnDefinitions="Auto,*,Auto,Auto">
                                     <TextBlock Grid.Column="0" Text="⠿"
                                                FontSize="16" Foreground="#5A5A5A"
@@ -120,7 +121,11 @@
                             </Border>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
-                </ItemsControl>
+                    </ItemsControl>
+                    <Border Name="DropIndicator" Height="3" Background="#4A9EFF"
+                            CornerRadius="2" IsVisible="False"
+                            HorizontalAlignment="Stretch" VerticalAlignment="Top" />
+                </Grid>
             </ScrollViewer>
 
 
