@@ -3,7 +3,6 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Presenters;
 using Avalonia.Input;
-using Avalonia.Media;
 using GroupTasker.UI.ViewModels;
 
 namespace GroupTasker.UI.Views;
@@ -13,8 +12,6 @@ public partial class GroupConfiguratorWindow : Window
     private bool _isDragging;
     private Point _dragStartPoint;
     private ShortcutViewModel? _draggedItem;
-    private Border? _draggedBorder;
-    private int _dragStartIndex;
     private const double DragThreshold = 8.0;
 
     public GroupConfiguratorWindow()
@@ -28,6 +25,15 @@ public partial class GroupConfiguratorWindow : Window
         };
     }
 
+    // ── Drag-and-drop reorder ───────────────────────────────────────
+    //
+    // Design: the item is NOT moved during drag.  Instead we dim it,
+    // track the pointer, and move it to the final target index on
+    // release.  This avoids the stale-container-reference bug that
+    // occurred when MoveToIndex was called mid-drag (Avalonia recycles
+    // ContentPresenters after a collection change, so _draggedBorder
+    // ended up pointing at the wrong item).
+
     private void OnShortcutPointerPressed(object? sender, PointerPressedEventArgs e)
     {
         if (sender is not Border border) return;
@@ -36,8 +42,6 @@ public partial class GroupConfiguratorWindow : Window
 
         _dragStartPoint = e.GetPosition(ShortcutsItemsControl);
         _draggedItem = vm;
-        _draggedBorder = border;
-        _dragStartIndex = ShortcutsItemsControl.Items.IndexOf(vm);
         _isDragging = false;
 
         e.Handled = true;
@@ -45,8 +49,13 @@ public partial class GroupConfiguratorWindow : Window
 
     private void OnShortcutPointerMoved(object? sender, PointerEventArgs e)
     {
-        if (_draggedItem is null || _draggedBorder is null) return;
-        if (!e.GetCurrentPoint(ShortcutsItemsControl).Properties.IsLeftButtonPressed) return;
+        if (_draggedItem is null) return;
+
+        if (!e.GetCurrentPoint(ShortcutsItemsControl).Properties.IsLeftButtonPressed)
+        {
+            CleanupDrag();
+            return;
+        }
 
         var currentPoint = e.GetPosition(ShortcutsItemsControl);
         var diff = currentPoint - _dragStartPoint;
@@ -54,72 +63,63 @@ public partial class GroupConfiguratorWindow : Window
         if (!_isDragging && (Math.Abs(diff.X) > DragThreshold || Math.Abs(diff.Y) > DragThreshold))
         {
             _isDragging = true;
-            _draggedBorder.Opacity = 0.5;
-            _draggedBorder.ZIndex = 100;
-            _draggedBorder.RenderTransform = new TranslateTransform(diff.X, diff.Y);
+            SetItemOpacity(_draggedItem, 0.3);
         }
 
         if (_isDragging)
-        {
-            _draggedBorder.RenderTransform = new TranslateTransform(diff.X, diff.Y);
-
-            var dropIndex = CalculateDropIndex(currentPoint);
-            var items = ShortcutsItemsControl.Items;
-            var vm = DataContext as GroupConfiguratorViewModel;
-            if (vm is not null && _draggedItem is not null)
-            {
-                var currentIdx = items.IndexOf(_draggedItem);
-                if (currentIdx >= 0 && dropIndex != currentIdx)
-                {
-                    vm.MoveToIndex(_draggedItem, dropIndex);
-                    _dragStartPoint = e.GetPosition(ShortcutsItemsControl);
-                    _dragStartIndex = dropIndex;
-                }
-            }
-
             e.Handled = true;
-        }
     }
 
     private void OnShortcutPointerReleased(object? sender, PointerReleasedEventArgs e)
     {
-        if (_draggedItem is null || _draggedBorder is null) return;
+        if (_draggedItem is null) return;
 
         if (_isDragging)
         {
-            _draggedBorder.Opacity = 1.0;
-            _draggedBorder.ZIndex = 0;
-            _draggedBorder.RenderTransform = null;
+            var dropPoint = e.GetPosition(ShortcutsItemsControl);
+            var dropIndex = CalculateDropIndex(dropPoint);
+
+            if (DataContext is GroupConfiguratorViewModel vm)
+                vm.MoveToIndex(_draggedItem, dropIndex);
         }
 
-        _isDragging = false;
-        _draggedItem = null;
-        _draggedBorder = null;
+        CleanupDrag();
         e.Handled = true;
     }
 
-    private int CalculateDropIndex(Point currentPoint)
+    private void CleanupDrag()
+    {
+        if (_draggedItem is not null)
+            SetItemOpacity(_draggedItem, 1.0);
+        _isDragging = false;
+        _draggedItem = null;
+    }
+
+    private void SetItemOpacity(ShortcutViewModel item, double opacity)
+    {
+        var index = ShortcutsItemsControl.Items.IndexOf(item);
+        if (index < 0) return;
+        if (ShortcutsItemsControl.ContainerFromIndex(index) is ContentPresenter container)
+            container.Opacity = opacity;
+    }
+
+    /// <summary>
+    /// Walk the list top-to-bottom and return the index of the first item
+    /// whose vertical midpoint is below the pointer.  If the pointer is
+    /// below all items, return the last index.
+    /// </summary>
+    private int CalculateDropIndex(Point point)
     {
         var items = ShortcutsItemsControl.Items;
         if (items.Count == 0) return 0;
 
         for (var i = 0; i < items.Count; i++)
         {
-            var container = ShortcutsItemsControl.ContainerFromIndex(i) as ContentPresenter;
-            if (container?.RenderTransform is TranslateTransform transform)
-            {
-                var itemTop = container.Bounds.Top + transform.Y;
-                var itemHeight = container.Bounds.Height;
-                if (currentPoint.Y < itemTop + itemHeight / 2)
-                    return i;
-            }
-            else if (container is not null)
-            {
-                var itemTop = container.Bounds.Top;
-                var itemHeight = container.Bounds.Height;
-                if (currentPoint.Y < itemTop + itemHeight / 2)
-                    return i;
-            }
+            if (ShortcutsItemsControl.ContainerFromIndex(i) is not ContentPresenter container)
+                continue;
+            var midY = container.Bounds.Top + container.Bounds.Height / 2;
+            if (point.Y < midY)
+                return i;
         }
 
         return items.Count - 1;

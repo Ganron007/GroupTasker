@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 The canonical version lives in `Directory.Build.props` — bump `<VersionPrefix>`
 there and add a new section at the top of this file for each release.
 
+## [1.5.9] - 2026-06-26
+
+### Fixed
+
+- **Drag-and-drop reorder in the configurator only moved items one step.**
+  After the first swap, further dragging did nothing.
+  Root cause: the old code called `MoveToIndex` *during* drag (swap-as-you-go
+  pattern). Each collection change caused Avalonia to recycle the
+  `ContentPresenter` containers, so `_draggedBorder` became a stale
+  reference pointing at a different item — the opacity / RenderTransform
+  feedback was applied to the wrong element.
+  Fix: rewritten to a press-dim-release model. The item is dimmed on drag
+  start, the collection is not touched during drag, and `MoveToIndex` is
+  called once on pointer release with the final drop index calculated
+  from the pointer Y position. Items can now be dragged any distance.
+
 ## [1.5.8] - 2026-06-21
 
 ### Fixed
