@@ -185,6 +185,30 @@ public partial class App : Avalonia.Application
         // The tray icon (set up by SetupTrayIcon) provides the entry point.
         // A hidden dummy window keeps the app alive without a visible main window.
         desktop.ShutdownMode = ShutdownMode.OnExplicitShutdown;
+
+        // Remember settings so flyouts opened from this process honour the saved position.
+        _settingsService = provider.GetRequiredService<LauncherSettingsService>();
+
+        // Become the single-instance server. This is the whole point of auto-start:
+        // when the user later clicks a pinned group shortcut, that secondary process
+        // finds THIS already-warm tray instance via the named pipe and hands off to it,
+        // so the flyout appears instantly instead of cold-starting a duplicate process.
+        StartSingleInstanceServer(provider);
+    }
+
+    /// <summary>
+    /// Start the named-pipe single-instance server (once) so secondary invocations —
+    /// e.g. clicking a pinned group shortcut — hand off to THIS process via
+    /// <see cref="SingleInstanceService.TryActivate"/> instead of spawning a cold one.
+    /// </summary>
+    private void StartSingleInstanceServer(IServiceProvider provider)
+    {
+        if (_singleInstance is not null) return;
+
+        var logger = provider.GetRequiredService<ILogger>();
+        _singleInstance = new SingleInstanceService(logger);
+        _singleInstance.OnShowGroup += n => ShowFlyout(n, provider);
+        _singleInstance.Start();
     }
 
     private void SetupTrayIcon()
@@ -333,6 +357,8 @@ public partial class App : Avalonia.Application
         var logger = provider.GetRequiredService<ILogger>();
         if (SingleInstanceService.TryActivate(groupName, logger))
         {
+            // A warmer instance (typically the auto-started tray process) already
+            // owns the pipe and will show the flyout — no need to cold-start this one.
             Environment.Exit(0);
             return;
         }
@@ -340,9 +366,9 @@ public partial class App : Avalonia.Application
         desktop.ShutdownMode = ShutdownMode.OnExplicitShutdown;
 
         _settingsService = provider.GetRequiredService<LauncherSettingsService>();
-        _singleInstance = new SingleInstanceService(logger);
-        _singleInstance.OnShowGroup += n => ShowFlyout(n, provider);
-        _singleInstance.Start();
+        // No running instance answered, so this process becomes the server and shows
+        // the flyout itself. Later invocations will hand off to it.
+        StartSingleInstanceServer(provider);
 
         ShowFlyout(groupName, provider);
     }

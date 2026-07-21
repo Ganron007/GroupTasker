@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 The canonical version lives in `Directory.Build.props` — bump `<VersionPrefix>`
 there and add a new section at the top of this file for each release.
 
+## [1.6.2] - 2026-07-22
+
+### Fixed
+
+- **Clicking a pinned group shortcut cold-started a duplicate process even
+  though the app was already running in the tray from auto-start.** This
+  defeated the whole point of "Start with Windows" — the pinned shortcut
+  was just as slow as a first launch because it never reused the warm
+  instance.
+  Root cause: the single-instance named-pipe listener was only started in
+  launcher mode. The auto-started `--tray` instance never listened on the
+  pipe, so a pinned-shortcut click found no running instance to hand off to
+  and spun up a brand-new process.
+  Fix: the tray instance now starts the same single-instance server. A
+  pinned-shortcut click finds the already-warm tray process via the pipe,
+  hands off the group name, and exits immediately — the flyout opens
+  instantly from the existing process with no duplicate cold start.
+
+- **Drag-and-drop in the configurator landed one slot too low when dragging
+  down.** The drop-indicator line showed the correct insertion point, but
+  `MoveToIndex` passed the indicator index straight to
+  `ObservableCollection.Move`, which removes the item first and shifts later
+  indices down by one. Dragging down now subtracts one so the result matches
+  the indicator; dragging up was already correct.
+
 ## [1.6.1] - 2026-06-26
 
 ### Fixed

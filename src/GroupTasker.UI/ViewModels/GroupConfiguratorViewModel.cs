@@ -237,10 +237,16 @@ public partial class GroupConfiguratorViewModel : ViewModelBase
     {
         var oldIndex = Shortcuts.IndexOf(shortcut);
         if (oldIndex < 0) return;
-        // newIndex can be Count (drop after last item) — clamp to last valid slot.
-        var clamped = Math.Clamp(newIndex, 0, Shortcuts.Count - 1);
-        if (oldIndex != clamped)
-            Shortcuts.Move(oldIndex, clamped);
+
+        // newIndex is the slot the drop-indicator pointed at: insert *before* the item
+        // currently there, or Count = drop after the last item. ObservableCollection.Move
+        // removes the item first, which shifts every later index down by one — so when
+        // dragging DOWN we subtract one, otherwise the item lands one slot too low and
+        // no longer matches the indicator. Dragging up needs no adjustment.
+        var target = oldIndex < newIndex ? newIndex - 1 : newIndex;
+        target = Math.Clamp(target, 0, Shortcuts.Count - 1);
+        if (oldIndex != target)
+            Shortcuts.Move(oldIndex, target);
     }
 
     [RelayCommand]
