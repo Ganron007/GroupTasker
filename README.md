@@ -4,6 +4,12 @@
 
 A Windows taskbar group launcher — pin app groups to your taskbar and launch multiple shortcuts from a single icon flyout. Tray-resident, hotkey-driven, MIT-licensed.
 
+<p align="center">
+  <img src="img/Img.png" alt="GroupTasker configurator showing a pinned group of shortcuts" width="720">
+  <br>
+  <em>The GroupTasker configurator — group your favourite apps and pin them to the taskbar for one-click access.</em>
+</p>
+
 ## Features
 
 - **Group launchers** — create groups of shortcuts (apps, folders, URLs, store apps, and **live / auto-updating apps**) and pin them to the taskbar as a single icon
@@ -70,7 +76,7 @@ Local release notes (for reference) live in `out\release\vX.Y.Z\RELEASE-vX.Y.Z.m
 ## Usage
 
 1. Launch GroupTasker — the configurator window opens, and a tray icon appears
-2. Create a group, add shortcuts (click **+ App**, **+ Folder**, **+ URL**, or **⚡ Live** for a Microsoft Store app)
+2. Create a group, add shortcuts (click **+ Add** to browse for apps / `.lnk` shortcuts, or **⚡ Live** to pick a running or Microsoft Store app)
 3. Open **Settings** (bottom bar) — pick a primary group, bind a global hotkey, optionally enable "Start with Windows"
 4. Click **Pin to taskbar** on the group card — a `.lnk` shortcut is created in the `shortcut\` folder and Explorer opens so you can drag it to your taskbar
 5. Click the pinned icon (or press the global hotkey) to open the flyout
@@ -86,7 +92,7 @@ src/
 ├── GroupTasker.UI/            — Avalonia desktop UI (views + view-models)
 └── GroupTasker.Launcher/      — .NET Framework 4.8 launcher shim (ensures .NET 9 runtime is present)
 tests/
-└── GroupTasker.UnitTests/     — xUnit unit tests (76 tests)
+└── GroupTasker.UnitTests/     — xUnit unit tests (77 tests)
 ```
 
 ## Build notes
