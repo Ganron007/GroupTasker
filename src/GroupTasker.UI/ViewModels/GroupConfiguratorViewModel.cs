@@ -126,7 +126,9 @@ public partial class GroupConfiguratorViewModel : ViewModelBase
                 [
                     new Avalonia.Platform.Storage.FilePickerFileType("Applications and Shortcuts")
                     {
-                        Patterns = ["*.exe", "*.lnk"]
+                        // *.url = internet shortcuts (steam://rungameid/…, com.epicgames.launcher://…)
+                        // that game launchers create for their titles.
+                        Patterns = ["*.exe", "*.lnk", "*.url"]
                     },
                     new Avalonia.Platform.Storage.FilePickerFileType("All files")
                     {
@@ -174,7 +176,7 @@ public partial class GroupConfiguratorViewModel : ViewModelBase
             var apps = _taskbarEnumerator.Enumerate();
             if (apps.Count == 0)
             {
-                ErrorMessage = "No running apps or pinned taskbar items found.";
+                ErrorMessage = "No running apps, pinned taskbar items, or installed games found.";
                 return;
             }
 
@@ -192,14 +194,49 @@ public partial class GroupConfiguratorViewModel : ViewModelBase
             // extracts a fresh icon and stores it as a stable cached PNG.
             // Setting it to selected.ExecutablePath would make the icon stale
             // the moment the underlying app updates to a new version folder.
-            var shortcut = new Shortcut
+            Shortcut shortcut;
+            if (!string.IsNullOrEmpty(selected.LnkPath) && string.IsNullOrEmpty(selected.Aumi))
             {
-                SourcePath = launchKey,
-                TargetPath = selected.Aumi,
-                Type = ShortcutType.LiveApplication,
-                DisplayName = selected.DisplayName,
-                IconPath = null
-            };
+                // Pinned launcher-based games (Steam, Epic, …): the .lnk's
+                // target is the launcher exe and the actual game only exists
+                // in the .lnk's arguments. Launch + icon the .lnk itself so
+                // the game opens instead of the launcher.
+                shortcut = new Shortcut
+                {
+                    SourcePath = selected.LnkPath,
+                    TargetPath = selected.LnkPath,
+                    Type = ShortcutType.Link,
+                    DisplayName = selected.DisplayName,
+                    IconSourcePath = selected.LnkPath,
+                    IconPath = null
+                };
+            }
+            else if (selected.Source == DiscoveredAppSource.GameLibrary &&
+                     !string.IsNullOrEmpty(selected.ExecutablePath))
+            {
+                // Library-scan game entry (Steam/Epic/GOG): launch the game exe
+                // directly. Steam games need Steam running, but this is the most
+                // reliable universal path for exe-based library entries.
+                shortcut = new Shortcut
+                {
+                    SourcePath = selected.ExecutablePath,
+                    TargetPath = selected.ExecutablePath,
+                    Type = ShortcutType.Application,
+                    DisplayName = selected.DisplayName,
+                    IconPath = null
+                };
+            }
+            else
+            {
+                shortcut = new Shortcut
+                {
+                    SourcePath = launchKey,
+                    TargetPath = selected.Aumi,
+                    Type = ShortcutType.LiveApplication,
+                    DisplayName = selected.DisplayName,
+                    IconPath = null
+                };
+            }
             Shortcuts.Add(new ShortcutViewModel(shortcut));
         }
         catch (Exception ex)

@@ -57,6 +57,15 @@ public sealed class WindowsShortcutService : IShortcutService
                     shortcut.TargetPath = sourcePath;
                     shortcut.DisplayName = Path.GetFileNameWithoutExtension(sourcePath);
                     break;
+                case ".url":
+                    // Internet shortcuts (steam://rungameid/…, com.epicgames.launcher://…)
+                    // that game launchers create for their titles. ShellExecute
+                    // resolves the protocol at launch time, so the .url itself
+                    // is the launch target.
+                    shortcut.Type = DomainShortcutType.Link;
+                    shortcut.TargetPath = sourcePath;
+                    shortcut.DisplayName = Path.GetFileNameWithoutExtension(sourcePath);
+                    break;
                 default:
                     if (Directory.Exists(sourcePath))
                     {

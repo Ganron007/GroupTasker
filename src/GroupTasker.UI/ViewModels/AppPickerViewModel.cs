@@ -145,6 +145,7 @@ public partial class DiscoveredAppViewModel : ViewModelBase
         DiscoveredAppSource.PinnedTaskbar => "📌 Taskbar",
         DiscoveredAppSource.RunningWindow => "▶ Running",
         DiscoveredAppSource.StoreApp => "⊞ Store",
+        DiscoveredAppSource.GameLibrary => "🎮 Game",
         _ => ""
     };
 

@@ -25,6 +25,14 @@ public sealed class DiscoveredApp
     /// <summary>Resolved .exe path at discovery time, if available.</summary>
     public string? ExecutablePath { get; init; }
 
+    /// <summary>
+    /// Path of the pinned taskbar .lnk this item came from, if any. Launcher-based
+    /// games (Steam, Epic, …) pin a .lnk whose target is the launcher exe — the
+    /// game itself only exists in the .lnk's arguments. Keeping the .lnk path lets
+    /// us launch (and icon) the game itself instead of the launcher.
+    /// </summary>
+    public string? LnkPath { get; init; }
+
     /// <summary>Window handle of the running instance, if any.</summary>
     public IntPtr WindowHandle { get; init; }
 
@@ -36,7 +44,9 @@ public enum DiscoveredAppSource
 {
     RunningWindow,
     PinnedTaskbar,
-    StoreApp
+    StoreApp,
+    /// <summary>Installed game found via launcher library scans (Steam, Epic, GOG, …) or Start Menu game shortcuts.</summary>
+    GameLibrary
 }
 
 /// <summary>

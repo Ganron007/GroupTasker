@@ -16,9 +16,9 @@
 
         <!-- Header -->
         <StackPanel Grid.Row="0" Margin="0,0,0,12">
-            <TextBlock Text="Pick a running app or pinned taskbar item"
+            <TextBlock Text="Pick a running app, pinned taskbar item, or installed game"
                        FontSize="14" Foreground="White" FontWeight="SemiBold" />
-            <TextBlock Text="Live apps are launched by process name or AUMI, so they survive app updates."
+            <TextBlock Text="Games from Steam, Epic, GOG, EA, Ubisoft, Rockstar, Battle.net and other launchers are listed from your libraries. Live apps are launched by process name or AUMI, so they survive app updates."
                        FontSize="11" Foreground="#8F8F8F" Margin="0,4,0,0" TextWrapping="Wrap" />
         </StackPanel>
 

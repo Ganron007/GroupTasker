@@ -26,6 +26,7 @@ public sealed class IconExtractor
                 ".lnk" => ExtractFromLink(sourcePath),
                 ".exe" => ExtractFromExe(sourcePath),
                 ".ico" => ExtractFromIco(sourcePath),
+                ".url" => ExtractFromUrl(sourcePath),
                 _ when IsStoreApp(sourcePath) => ExtractFromStoreApp(sourcePath),
                 _ when Directory.Exists(sourcePath) => ExtractFromFolder(sourcePath),
                 _ => ExtractFromExe(sourcePath)
@@ -97,6 +98,41 @@ public sealed class IconExtractor
         {
             using var icon = Icon.ExtractAssociatedIcon(Path.GetFullPath(filePath));
             return icon?.ToBitmap() ?? SafeExtract(filePath);
+        }
+        catch
+        {
+            return SafeExtract(filePath);
+        }
+    }
+
+    /// <summary>
+    /// Icon for a .url internet shortcut (steam://rungameid/…, epicgames://…).
+    /// The .url INI format can carry <c>IconFile=</c>/<c>IconIndex=</c> entries —
+    /// launchers often point them at the game's own .exe — so honour those first,
+    /// then fall back to the shell's associated icon for the protocol.
+    /// </summary>
+    private static Bitmap ExtractFromUrl(string filePath)
+    {
+        try
+        {
+            foreach (var rawLine in File.ReadLines(filePath))
+            {
+                var line = rawLine.Trim();
+                var sep = line.IndexOf('=');
+                if (sep <= 0) continue;
+                var key = line[..sep].Trim();
+                if (!key.Equals("IconFile", StringComparison.OrdinalIgnoreCase)) continue;
+
+                var value = line[(sep + 1)..].Trim().Trim('"');
+                if (File.Exists(value))
+                {
+                    using var icon = Icon.ExtractAssociatedIcon(value);
+                    if (icon is not null) return icon.ToBitmap();
+                }
+            }
+
+            using var associated = Icon.ExtractAssociatedIcon(filePath);
+            return associated?.ToBitmap() ?? SafeExtract(filePath);
         }
         catch
         {

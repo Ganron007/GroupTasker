@@ -15,6 +15,8 @@ A Windows taskbar group launcher — pin app groups to your taskbar and launch m
 - **Group launchers** — create groups of shortcuts (apps, folders, URLs, store apps, and **live / auto-updating apps**) and pin them to the taskbar as a single icon
 - **Live / auto-updating app support** — add Microsoft Store / MSIX apps (Claude Desktop, Codex, etc.) by their `AppUserModelId`. The AUMI is stable across updates, so the shortcut keeps working when the app version-folder changes (e.g. `WindowsApps\Claude_1.12603.1.0_…` → `Claude_1.12700.0.0_…`)
 - **App picker** — search across running apps, pinned taskbar items, and every Microsoft Store app on the system (~300+ items from `shell:AppsFolder`)
+- **Game library support** — the picker lists installed games from Steam, Epic, GOG, EA, Ubisoft, Rockstar, Battle.net, Riot, Amazon and other launchers (library folders + Start Menu shortcuts), even when the games aren't running; launchers themselves can be added too
+- **Game shortcuts** — add game `.url` protocol shortcuts (`steam://rungameid/…`, `com.epicgames.launcher://…`, `link2ea://…`) directly via **+ Add**; pinned launcher games launch the game, not the launcher
 - **Proper `.lnk` icon extraction** — reads `IconLocation` from `IShellLinkW` so separate `.ico` files (Ollama `app.ico`, Claude, Codex) get the right colourful icon
 - **Global hotkey** — open your primary group from anywhere on the system. Default `Ctrl+Alt+G`, fully configurable in Settings (`Ctrl+Alt+G`, `Alt+F12`, `Ctrl+Shift+F1`, etc.)
 - **Search / filter inside the flyout** — type-to-filter textbox; matches shortcut name and target path. Esc clears, Esc again closes

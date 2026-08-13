@@ -18,16 +18,21 @@ public sealed class TaskbarEnumerator : ITaskbarEnumerator
 {
     private readonly IAppActivator _activator;
     private readonly IStoreAppEnumerator _storeApps;
+    private readonly IGameLibraryEnumerator _gameLibraries;
 
     // Matches a WindowsApps package folder: {Name}_{Version}_{Arch}__{FamilyName}
     private static readonly Regex WindowsAppsPackagePattern = new(
         @"\\WindowsApps\\[^\\]+__(?<family>[A-Za-z0-9]+)\\",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
-    public TaskbarEnumerator(IAppActivator activator, IStoreAppEnumerator storeApps)
+    public TaskbarEnumerator(
+        IAppActivator activator,
+        IStoreAppEnumerator storeApps,
+        IGameLibraryEnumerator gameLibraries)
     {
         _activator = activator;
         _storeApps = storeApps;
+        _gameLibraries = gameLibraries;
     }
 
     public IReadOnlyList<DiscoveredApp> Enumerate()
@@ -38,6 +43,7 @@ public sealed class TaskbarEnumerator : ITaskbarEnumerator
         var results = new List<DiscoveredApp>();
         results.AddRange(_storeApps.Enumerate());
         results.AddRange(EnumeratePinnedTaskbarItems());
+        results.AddRange(_gameLibraries.Enumerate());
         results.AddRange(EnumerateRunningWindows());
         results.AddRange(EnumerateAllRunningProcesses());
 
@@ -49,6 +55,8 @@ public sealed class TaskbarEnumerator : ITaskbarEnumerator
                 .OrderByDescending(a => a.Aumi is not null)
                 .ThenByDescending(a => a.Source == DiscoveredAppSource.StoreApp)
                 .ThenByDescending(a => a.Source == DiscoveredAppSource.PinnedTaskbar)
+                .ThenByDescending(a => a.Source == DiscoveredAppSource.GameLibrary)
+                .ThenByDescending(a => a.LnkPath is not null)
                 .ThenByDescending(a => !string.IsNullOrEmpty(a.ExecutablePath))
                 .First())
             .ToList();
@@ -62,9 +70,27 @@ public sealed class TaskbarEnumerator : ITaskbarEnumerator
     /// running-process entry with AUMI <c>Claude_xyz!App</c> and a store-app
     /// entry with AUMI <c>Claude_xyz!Claude</c> both collapse to the same
     /// package family.
+    /// <para>
+    /// Pinned taskbar items key on their .lnk path: every pinned Steam/Epic
+    /// game shares the same launcher exe (steam.exe / EpicGamesLauncher.exe)
+    /// and differs only in the .lnk's arguments — deduping on the exe would
+    /// collapse all of them into one entry. Game-library shortcuts key on
+    /// their resolved exe (when it isn't a launcher) so they merge with the
+    /// exe-based library scans.
+    /// </para>
     /// </summary>
     private static string DedupKey(DiscoveredApp a)
     {
+        if (!string.IsNullOrEmpty(a.LnkPath))
+        {
+            if (a.Source != DiscoveredAppSource.PinnedTaskbar &&
+                !string.IsNullOrEmpty(a.ExecutablePath) &&
+                !GameLibraryEnumerator.IsLauncherExe(a.ExecutablePath))
+            {
+                return $"exe:{a.ExecutablePath.ToLowerInvariant()}";
+            }
+            return $"lnk:{a.LnkPath.ToLowerInvariant()}";
+        }
         if (!string.IsNullOrEmpty(a.Aumi))
         {
             // Use just the family part of the AUMI (before the "!")
@@ -105,6 +131,7 @@ public sealed class TaskbarEnumerator : ITaskbarEnumerator
                     Aumi = aumi,
                     ProcessName = exe is null ? null : Path.GetFileNameWithoutExtension(exe),
                     ExecutablePath = exe,
+                    LnkPath = lnk,
                     Source = DiscoveredAppSource.PinnedTaskbar
                 };
             }

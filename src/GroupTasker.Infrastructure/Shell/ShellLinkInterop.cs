@@ -73,6 +73,39 @@ public static class ShellLinkInterop
 
     private const int MAX_PATH = 260;
 
+    /// <summary>
+    /// Read the target URL of a URL-based .lnk (steam://rungameid/…,
+    /// link2ea://…, battle.net://…). <c>IShellLinkW.GetPath</c> returns an
+    /// empty string for these, so the URL must come from the property store
+    /// (<c>PKEY_Link_TargetUrl</c>).
+    /// </summary>
+    public static string? TryReadTargetUrl(string lnkPath)
+    {
+        try
+        {
+            var shortcut = (IShellLinkW)new CShellLink();
+            var persist = (IPersistFile)shortcut;
+            persist.Load(lnkPath, 0);
+
+            var propertyStore = (IPropertyStore)shortcut;
+            var key = new PropertyKey
+            {
+                fmtid = new Guid("9F4C2855-9F79-4B39-A8D0-E1D42DE1D5F3"),
+                pid = 2 // PKEY_Link_TargetUrl
+            };
+            propertyStore.GetValue(ref key, out var pv);
+
+            if (pv.vt != (ushort)VarEnum.VT_LPWSTR || pv.unionmember == IntPtr.Zero)
+                return null;
+
+            return Marshal.PtrToStringUni(pv.unionmember);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     #region COM Interfaces
 
     [ComImport, Guid("000214F9-0000-0000-C000-000000000046"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]

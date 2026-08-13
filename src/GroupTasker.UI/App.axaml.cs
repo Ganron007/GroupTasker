@@ -112,9 +112,11 @@ public partial class App : Avalonia.Application
         services.AddSingleton<IAppActivator, WindowsAppActivator>();
         services.AddSingleton<ILiveAppResolver, LiveAppResolver>();
         services.AddSingleton<IStoreAppEnumerator, ShellAppsFolderEnumerator>();
+        services.AddSingleton<IGameLibraryEnumerator, GameLibraryEnumerator>();
         services.AddSingleton<ITaskbarEnumerator>(sp => new TaskbarEnumerator(
             sp.GetRequiredService<IAppActivator>(),
-            sp.GetRequiredService<IStoreAppEnumerator>()));
+            sp.GetRequiredService<IStoreAppEnumerator>(),
+            sp.GetRequiredService<IGameLibraryEnumerator>()));
         services.AddSingleton<IIconCacheService>(sp => new IconCacheService(
             sp.GetRequiredService<IconExtractor>(),
             sp.GetRequiredService<ILiveAppResolver>(),
