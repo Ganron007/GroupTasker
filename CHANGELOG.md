@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 The canonical version lives in `Directory.Build.props` — bump `<VersionPrefix>`
 there and add a new section at the top of this file for each release.
 
+## [1.7.0] - 2026-08-13
+
+### Added
+
+- **Game library support.** The "Add from running apps" picker now lists
+  installed games even when they are not running or pinned:
+  - **Start Menu scan** (generic) — covers EA app, Ubisoft Connect,
+    Rockstar Games Launcher, Battle.net, Riot, Amazon Games, itch.io and
+    any other launcher that registers Start Menu shortcuts. The launchers
+    themselves (Steam, EA app, Ubisoft Connect, Battle.net, GOG Galaxy,
+    Riot Client, …) are listed too.
+  - **Steam** — parses `libraryfolders.vdf` (all drives) and
+    `appmanifest_*.acf` to find every game under `steamapps\common`.
+  - **Epic** — parses the launcher's `Manifests\*.item` JSON (Epic
+    shortcuts are disabled by default, so Start Menu alone misses them).
+  - **GOG** — reads the `GOG.com\Games` registry install records.
+- **Game shortcut support in + Add.** The file picker now accepts `.url`
+  protocol shortcuts (`steam://rungameid/…`, `com.epicgames.launcher://…`,
+  `link2ea://…`) and resolves them as launchable shortcuts, extracting the
+  icon from the `.url`'s `IconFile=` entry when present.
+- **URL-based .lnk reading.** `ShellLinkInterop.TryReadTargetUrl` reads
+  `PKEY_Link_TargetUrl` so protocol shortcuts (steam://, battle.net://, …)
+  are correctly detected during the Start Menu scan.
+
+### Fixed
+
+- **Adding a pinned launcher game launched the launcher, not the game.**
+  Pinned Steam/Epic/Rockstar/Battle.net shortcuts all resolve to the
+  launcher exe with the game identity buried in the .lnk's arguments.
+  These are now launched via the .lnk itself, so the game opens.
+- **Pinned games collapsed into one picker entry.** Every pinned game
+  sharing one launcher exe (steam.exe, EpicGamesLauncher.exe, …) was
+  deduped into a single entry. Pinned items now dedup by their .lnk path.
+
 ## [1.6.2] - 2026-07-22
 
 ### Fixed
