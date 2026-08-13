@@ -52,6 +52,14 @@ public sealed class GameLibraryEnumerator : IGameLibraryEnumerator
         "xbox", "minecraft launcher"
     ];
 
+    // Launcher helper shortcuts that live in game folders but are not games
+    // or launchers (updaters, error reporters, uninstallers).
+    private static readonly string[] NonGameLnkNames =
+    [
+        "uninstall", "uninstaller", "updater", "error reporter", "app recovery",
+        "repair", "check for updates", "reinstall", "remove"
+    ];
+
     // Start Menu .lnk targets under these paths are treated as games even when
     // the shortcut sits outside a recognisable launcher folder.
     private static readonly string[] TargetPathMarkers =
@@ -76,13 +84,14 @@ public sealed class GameLibraryEnumerator : IGameLibraryEnumerator
         "steam.exe", "epicgameslauncher.exe", "eadesktop.exe", "ealauncher.exe",
         "origin.exe", "upc.exe", "ubisoftconnect.exe", "rockstargameslauncher.exe",
         "launcher.exe", "battle.net.exe", "battle.net launcher.exe",
-        "goggalaxy.exe", "galaxyclient.exe", "amazongames.exe", "riotclient.exe"
+        "goggalaxy.exe", "galaxyclient.exe", "amazongames.exe", "riotclient.exe",
+        "riotclientservices.exe"
     };
 
     private static readonly string[] JunkExeNames =
     [
         "unins", "crashhandler", "crashreporter", "crashreport", "redist",
-        "dxsetup", "dotnet", "report", "cefprocess"
+        "dxsetup", "dotnet", "report", "cefprocess", "vconsole", "console"
     ];
 
     private static readonly string[] JunkDirPrefixes =
@@ -94,6 +103,7 @@ public sealed class GameLibraryEnumerator : IGameLibraryEnumerator
     {
         var results = new List<DiscoveredApp>();
         try { results.AddRange(EnumerateStartMenuGames()); } catch { /* never throw */ }
+        try { results.AddRange(EnumerateDesktopShortcuts()); } catch { /* never throw */ }
         try { results.AddRange(EnumerateSteamGames()); } catch { /* never throw */ }
         try { results.AddRange(EnumerateEpicGames()); } catch { /* never throw */ }
         try { results.AddRange(EnumerateGogGames()); } catch { /* never throw */ }
@@ -106,6 +116,11 @@ public sealed class GameLibraryEnumerator : IGameLibraryEnumerator
         var name = Path.GetFileName(exePath);
         return !string.IsNullOrEmpty(name) && LauncherExes.Contains(name);
     }
+
+    /// <summary>True when the display name is a known launcher (Steam, EA app, …).</summary>
+    public static bool IsLauncherName(string? name) =>
+        !string.IsNullOrEmpty(name) &&
+        LauncherLnkNames.Any(l => name.Equals(l, StringComparison.OrdinalIgnoreCase));
 
     // ── Start Menu scan ──────────────────────────────────────────────
 
@@ -151,6 +166,11 @@ public sealed class GameLibraryEnumerator : IGameLibraryEnumerator
         var inSkippedFolder = segments.Any(s =>
             SkippedStartMenuFolders.Any(f => s.Equals(f, StringComparison.OrdinalIgnoreCase)));
         if (inSkippedFolder && !isLauncher) return null;
+
+        // Drop launcher helper shortcuts (updaters, error reporters, …) that
+        // live inside game folders but are not games.
+        if (!isLauncher && NonGameLnkNames.Any(j =>
+            name.Contains(j, StringComparison.OrdinalIgnoreCase))) return null;
 
         var inGameFolder = segments.Any(s => GameFolderMarkers.Any(m =>
             s.Equals(m, StringComparison.OrdinalIgnoreCase) ||
@@ -200,6 +220,124 @@ public sealed class GameLibraryEnumerator : IGameLibraryEnumerator
             ProcessName = exe is null ? null : Path.GetFileNameWithoutExtension(exe),
             ExecutablePath = exe,
             LnkPath = lnk,
+            TargetUrl = url,
+            Source = DiscoveredAppSource.GameLibrary
+        };
+    }
+
+    // ── Desktop scan ────────────────────────────────────────────────
+
+    private static IEnumerable<DiscoveredApp> EnumerateDesktopShortcuts()
+    {
+        var roots = new[]
+        {
+            Environment.GetFolderPath(Environment.SpecialFolder.Desktop),
+            Environment.GetFolderPath(Environment.SpecialFolder.CommonDesktopDirectory),
+            // On OneDrive-redirected systems the physical Desktop folder can
+            // still hold shortcuts; scan it too (Distinct() dedups overlaps).
+            Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Desktop")
+        }
+        .Where(p => !string.IsNullOrEmpty(p) && Directory.Exists(p))
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .ToArray();
+
+        foreach (var root in roots)
+        {
+            foreach (var file in Directory.EnumerateFiles(root))
+            {
+                var ext = Path.GetExtension(file).ToLowerInvariant();
+                if (ext is not (".lnk" or ".url")) continue;
+
+                var entry = TryBuildDesktopEntry(file);
+                if (entry is not null) yield return entry;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Classify a desktop shortcut as a game / launcher. The desktop has no
+    /// folder structure, so we rely on the shortcut's name (known launchers),
+    /// the resolved target path (installed under a launcher folder), or a
+    /// launcher protocol URL.
+    /// </summary>
+    private static DiscoveredApp? TryBuildDesktopEntry(string path)
+    {
+        string name;
+        try
+        {
+            name = Path.GetFileNameWithoutExtension(path);
+        }
+        catch
+        {
+            return null;
+        }
+
+        var isLauncher = LauncherLnkNames.Any(l => name.Equals(l, StringComparison.OrdinalIgnoreCase));
+
+        string? exe = null;
+        string? url = null;
+
+        if (Path.GetExtension(path).Equals(".lnk", StringComparison.OrdinalIgnoreCase))
+        {
+            string target;
+            try
+            {
+                (target, _, _, _, _) = ShellLinkInterop.ReadShortcut(path);
+            }
+            catch
+            {
+                target = "";
+            }
+
+            if (!string.IsNullOrWhiteSpace(target))
+            {
+                try
+                {
+                    var full = Path.GetFullPath(Environment.ExpandEnvironmentVariables(target));
+                    if (File.Exists(full)) exe = full;
+                }
+                catch { /* unreadable target — keep exe null */ }
+            }
+            else
+            {
+                url = ShellLinkInterop.TryReadTargetUrl(path);
+            }
+        }
+        else
+        {
+            // .url: read the URL= line from the INI text
+            try
+            {
+                foreach (var rawLine in File.ReadLines(path))
+                {
+                    var line = rawLine.Trim();
+                    var sep = line.IndexOf('=');
+                    if (sep <= 0) continue;
+                    if (line[..sep].Trim().Equals("URL", StringComparison.OrdinalIgnoreCase))
+                    {
+                        url = line[(sep + 1)..].Trim();
+                        break;
+                    }
+                }
+            }
+            catch { /* unreadable .url */ }
+        }
+
+        var exeIsGame = exe is not null &&
+            TargetPathMarkers.Any(m => exe.Contains(m, StringComparison.OrdinalIgnoreCase));
+        var urlIsGame = url is not null &&
+            GameProtocols.Any(p => url.StartsWith(p, StringComparison.OrdinalIgnoreCase));
+
+        if (!isLauncher && !exeIsGame && !urlIsGame) return null;
+
+        return new DiscoveredApp
+        {
+            DisplayName = name,
+            ProcessName = exe is null ? null : Path.GetFileNameWithoutExtension(exe),
+            ExecutablePath = exe,
+            LnkPath = path,
+            TargetUrl = url,
             Source = DiscoveredAppSource.GameLibrary
         };
     }
@@ -241,7 +379,10 @@ public sealed class GameLibraryEnumerator : IGameLibraryEnumerator
         }
 
         // appmanifest_<id>.acf maps "installdir" (common\<folder>) to "name".
+        // The appid is kept too, so the entry can be tagged with
+        // steam://rungameid/<id> and merge with desktop .url / AppsFolder copies.
         var namesByInstallDir = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var appIdByInstallDir = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         foreach (var root in libraryRoots)
         {
             try
@@ -251,7 +392,12 @@ public sealed class GameLibraryEnumerator : IGameLibraryEnumerator
                     var text = File.ReadAllText(acf);
                     var n = Regex.Match(text, "\"name\"\\s+\"([^\"]*)\"").Groups[1].Value;
                     var d = Regex.Match(text, "\"installdir\"\\s+\"([^\"]*)\"").Groups[1].Value;
-                    if (!string.IsNullOrEmpty(d)) namesByInstallDir[d] = n;
+                    var id = Path.GetFileNameWithoutExtension(acf)["appmanifest_".Length..];
+                    if (!string.IsNullOrEmpty(d))
+                    {
+                        namesByInstallDir[d] = n;
+                        appIdByInstallDir[d] = id;
+                    }
                 }
             }
             catch { /* skip library */ }
@@ -276,11 +422,16 @@ public sealed class GameLibraryEnumerator : IGameLibraryEnumerator
                     ? n
                     : folderName;
 
+                var targetUrl = appIdByInstallDir.TryGetValue(folderName, out var appId)
+                    ? $"steam://rungameid/{appId}"
+                    : null;
+
                 yield return new DiscoveredApp
                 {
                     DisplayName = displayName,
                     ProcessName = Path.GetFileNameWithoutExtension(exe),
                     ExecutablePath = exe,
+                    TargetUrl = targetUrl,
                     Source = DiscoveredAppSource.GameLibrary
                 };
             }

@@ -26,6 +26,11 @@ public partial class AppPickerViewModel : ViewModelBase
     [ObservableProperty] private ObservableCollection<DiscoveredAppViewModel> _apps = [];
     [ObservableProperty] private DiscoveredAppViewModel? _selectedApp;
     [ObservableProperty] private string _filter = "";
+    [ObservableProperty] private string _category = "All";
+
+    /// <summary>Category quick-filters shown in the picker dropdown.</summary>
+    public IReadOnlyList<string> Categories { get; } =
+        ["All", "🎮 Games", "📌 Taskbar", "⊞ Store", "▶ Running"];
 
     /// <summary>Result of the dialog — set by AddCommand, consumed by the caller.</summary>
     public DiscoveredApp? DialogResult { get; private set; }
@@ -40,17 +45,29 @@ public partial class AppPickerViewModel : ViewModelBase
 
     partial void OnFilterChanged(string value) => ApplyFilter();
 
-    /// <summary>Apply the current filter to the Apps collection (word-prefix match).</summary>
+    partial void OnCategoryChanged(string value) => ApplyFilter();
+
+    /// <summary>Apply the current category + filter to the Apps collection (word-prefix match).</summary>
     private void ApplyFilter()
     {
         var filter = Filter?.Trim() ?? "";
         Apps.Clear();
         foreach (var app in _allApps)
         {
+            if (!MatchesCategory(app)) continue;
             if (string.IsNullOrEmpty(filter) || MatchesFilter(app, filter))
                 Apps.Add(app);
         }
     }
+
+    private bool MatchesCategory(DiscoveredAppViewModel app) => Category switch
+    {
+        "🎮 Games" => app.IsGame,
+        "📌 Taskbar" => app.Source.Source == DiscoveredAppSource.PinnedTaskbar,
+        "⊞ Store" => app.Source.Source == DiscoveredAppSource.StoreApp,
+        "▶ Running" => app.Source.Source == DiscoveredAppSource.RunningWindow,
+        _ => true
+    };
 
     private static bool MatchesFilter(DiscoveredAppViewModel app, string filter)
     {
@@ -140,6 +157,34 @@ public partial class DiscoveredAppViewModel : ViewModelBase
     public string DisplayName => Source.DisplayName;
     public string? ProcessName => Source.ProcessName;
     public string? ExecutablePath => Source.ExecutablePath;
+
+    /// <summary>
+    /// Heuristic used by the 🎮 Games category: library-scan entries, plus
+    /// store entries whose AUMI is a launcher protocol URL (steam://…) or
+    /// whose AUMI names a known launcher (Steam, Epic, EA, Ubisoft, GOG, …).
+    /// </summary>
+    public bool IsGame
+    {
+        get
+        {
+            if (Source.Source == DiscoveredAppSource.GameLibrary) return true;
+            if (Source.Source != DiscoveredAppSource.StoreApp) return false;
+
+            var aumi = Source.Aumi;
+            if (string.IsNullOrEmpty(aumi)) return false;
+            if (aumi.Contains("://", StringComparison.OrdinalIgnoreCase)) return true;
+            if (aumi.Contains("game", StringComparison.OrdinalIgnoreCase)) return true;
+            return LauncherAumiMarkers.Any(m => aumi.Contains(m, StringComparison.OrdinalIgnoreCase));
+        }
+    }
+
+    private static readonly string[] LauncherAumiMarkers =
+    [
+        "steam", "epic", "electronicarts", "eadesktop", "ubisoft", "uplay",
+        "rockstar", "battle.net", "blizzard", "riot", "gog", "galaxy",
+        "amazon", "xbox"
+    ];
+
     public string SourceLabel => Source.Source switch
     {
         DiscoveredAppSource.PinnedTaskbar => "📌 Taskbar",

@@ -140,6 +140,19 @@ public partial class GroupConfiguratorViewModel : ViewModelBase
                 ]
             };
 
+            // Open the picker on the Desktop — that's where launchers and game
+            // shortcuts live, and users expect to see them immediately.
+            try
+            {
+                options.SuggestedStartLocation =
+                    await topLevel.StorageProvider.TryGetWellKnownFolderAsync(
+                        Avalonia.Platform.Storage.WellKnownFolder.Desktop);
+            }
+            catch
+            {
+                // Non-fatal: the picker falls back to its default location.
+            }
+
             var files = await topLevel.StorageProvider.OpenFilePickerAsync(options);
             if (files is null || files.Count == 0) return;
 

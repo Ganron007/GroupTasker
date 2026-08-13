@@ -86,6 +86,12 @@ public sealed class ShellAppsFolderEnumerator : IStoreAppEnumerator
                 {
                     DisplayName = name,
                     Aumi = aumi,
+                    // Some AppsFolder items (Steam-pinned games) expose a launcher
+                    // protocol URL (steam://rungameid/…) instead of a real AUMI.
+                    // Carry it so duplicates from other sources can merge on it.
+                    TargetUrl = aumi.Contains("://", StringComparison.Ordinal)
+                        ? aumi
+                        : null,
                     ProcessName = name,
                     ExecutablePath = null,
                     Source = DiscoveredAppSource.StoreApp

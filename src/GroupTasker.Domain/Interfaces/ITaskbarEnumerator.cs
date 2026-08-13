@@ -33,6 +33,13 @@ public sealed class DiscoveredApp
     /// </summary>
     public string? LnkPath { get; init; }
 
+    /// <summary>
+    /// Launcher protocol URL (steam://rungameid/730, …) when known. Used to merge
+    /// duplicate entries for the same game that come from different sources
+    /// (desktop .url, AppsFolder entry, Steam library scan).
+    /// </summary>
+    public string? TargetUrl { get; init; }
+
     /// <summary>Window handle of the running instance, if any.</summary>
     public IntPtr WindowHandle { get; init; }
 
