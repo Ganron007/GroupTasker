@@ -74,6 +74,9 @@ public partial class GroupConfiguratorViewModel : ViewModelBase
     [ObservableProperty] private bool _isNewGroup = true;
     [ObservableProperty] private string? _errorMessage;
 
+    /// <summary>Free-form input for "Add by path/URL": any file path, protocol URI, or Store app ID.</summary>
+    [ObservableProperty] private string _manualPath = "";
+
     /// <summary>
     /// The dialog window hosting this VM. Set by the View on attach so the VM can
     /// close itself without enumerating all open windows looking for the right one.
@@ -124,11 +127,11 @@ public partial class GroupConfiguratorViewModel : ViewModelBase
                 AllowMultiple = true,
                 FileTypeFilter =
                 [
-                    new Avalonia.Platform.Storage.FilePickerFileType("Applications and Shortcuts")
+                    new Avalonia.Platform.Storage.FilePickerFileType("Apps, Shortcuts, Scripts")
                     {
-                        // *.url = internet shortcuts (steam://rungameid/…, com.epicgames.launcher://…)
-                        // that game launchers create for their titles.
-                        Patterns = ["*.exe", "*.lnk", "*.url"]
+                        // *.url = internet shortcuts (steam://rungameid/…, com.epicgames.launcher://…);
+                        // *.appref-ms = ClickOnce shortcuts; *.website = pinned sites; scripts too.
+                        Patterns = ["*.exe", "*.lnk", "*.url", "*.appref-ms", "*.website", "*.bat", "*.cmd", "*.ps1", "*.vbs", "*.msc"]
                     },
                     new Avalonia.Platform.Storage.FilePickerFileType("All files")
                     {
@@ -242,6 +245,33 @@ public partial class GroupConfiguratorViewModel : ViewModelBase
         catch (Exception ex)
         {
             ErrorMessage = $"Discovery failed: {ex.Message}";
+        }
+    }
+
+    /// <summary>
+    /// Add a shortcut from free-form input: any file path (exe, lnk, url,
+    /// script, document), protocol URI (steam://rungameid/730, ms-settings:…),
+    /// or Store app ID. <see cref="IShortcutService.Resolve"/> classifies it.
+    /// </summary>
+    [RelayCommand]
+    private void AddManualShortcut()
+    {
+        var input = ManualPath?.Trim();
+        if (string.IsNullOrWhiteSpace(input))
+        {
+            ErrorMessage = "Enter a path, protocol URI (e.g. steam://rungameid/730), or Store app ID first.";
+            return;
+        }
+
+        try
+        {
+            var resolved = _shortcutService.Resolve(input);
+            Shortcuts.Add(new ShortcutViewModel(resolved));
+            ManualPath = "";
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = $"Couldn't add '{input}': {ex.Message}";
         }
     }
 

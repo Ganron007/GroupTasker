@@ -17,6 +17,8 @@ A Windows taskbar group launcher — pin app groups to your taskbar and launch m
 - **App picker** — search across running apps, pinned taskbar items, and every Microsoft Store app on the system (~300+ items from `shell:AppsFolder`)
 - **Game library support** — the picker lists installed games from Steam, Epic, GOG, EA, Ubisoft, Rockstar, Battle.net, Riot, Amazon and other launchers (library folders + Start Menu shortcuts), even when the games aren't running; launchers themselves can be added too
 - **Game shortcuts** — add game `.url` protocol shortcuts (`steam://rungameid/…`, `com.epicgames.launcher://…`, `link2ea://…`) directly via **+ Add**; pinned launcher games launch the game, not the launcher
+- **All shortcut kinds** — `.lnk`, `.url`, `.appref-ms` (ClickOnce), `.website` (pinned sites), scripts (`.bat`/`.cmd`/`.ps1`/`.vbs`/`.msc`), folders, documents, MSIX/Store apps, and URI-targeted shortcuts (`ms-settings:…`, `shell:…`); anything Windows can shell-execute works
+- **Add by path/URL** — paste any path, protocol URI, or Store app ID directly into the configurator instead of browsing
 - **Proper `.lnk` icon extraction** — reads `IconLocation` from `IShellLinkW` so separate `.ico` files (Ollama `app.ico`, Claude, Codex) get the right colourful icon
 - **Global hotkey** — open your primary group from anywhere on the system. Default `Ctrl+Alt+G`, fully configurable in Settings (`Ctrl+Alt+G`, `Alt+F12`, `Ctrl+Shift+F1`, etc.)
 - **Search / filter inside the flyout** — type-to-filter textbox; matches shortcut name and target path. Esc clears, Esc again closes
@@ -94,7 +96,7 @@ src/
 ├── GroupTasker.UI/            — Avalonia desktop UI (views + view-models)
 └── GroupTasker.Launcher/      — .NET Framework 4.8 launcher shim (ensures .NET 9 runtime is present)
 tests/
-└── GroupTasker.UnitTests/     — xUnit unit tests (77 tests)
+└── GroupTasker.UnitTests/     — xUnit unit tests (100 tests)
 ```
 
 ## Build notes

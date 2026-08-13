@@ -128,7 +128,20 @@
                 </Grid>
             </ScrollViewer>
 
-
+            <!-- Add by path / URL -->
+            <Grid Grid.Row="2" ColumnDefinitions="*,Auto" Margin="0,8,0,0">
+                <TextBox Grid.Column="0"
+                         Text="{Binding ManualPath}"
+                         PlaceholderText="Paste a path, steam:// URI, or Store app ID"
+                         FontSize="12" Foreground="White"
+                         Background="#252525" BorderBrush="#3A3A3A"
+                         BorderThickness="1" CornerRadius="4"
+                         Padding="10,6" />
+                <Button Grid.Column="1" Content="Add" Command="{Binding AddManualShortcutCommand}"
+                        Classes="Secondary" Margin="8,0,0,0"
+                        AutomationProperties.Name="Add shortcut by path or URL"
+                        ToolTip.Tip="Add by path, protocol URI, or Store app ID" />
+            </Grid>
         </Grid>
 
         <!-- Action Buttons -->

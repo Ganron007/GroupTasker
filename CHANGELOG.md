@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 The canonical version lives in `Directory.Build.props` — bump `<VersionPrefix>`
 there and add a new section at the top of this file for each release.
 
+## [1.7.1] - 2026-08-13
+
+### Added
+
+- **All shortcut kinds are now first-class.** The + Add picker and resolver
+  cover every shortcut type Windows can shell-execute:
+  - `.appref-ms` (ClickOnce shortcuts) and `.website` (pinned-site
+    shortcuts) — previously hidden behind "All files" and unclassified.
+  - Scripts (`.bat`, `.cmd`, `.ps1`, `.vbs`, `.msc`).
+  - Typed-in protocol URIs (`steam://rungameid/730`, `ms-settings:…`,
+    `mailto:…`) via the new **Add by path/URL** input in the configurator —
+    paste any path, protocol URI, or Store app ID directly.
+  - Store app IDs pasted from Explorer as `shell:AppsFolder\<AUMI>` are
+    stripped to the bare AUMI.
+
+### Fixed
+
+- **URI-targeted .lnk shortcuts were garbled.** A .lnk whose target is a URI
+  (`ms-settings:bluetooth`, `shell:…`) had its target run through
+  `Path.GetFullPath`, producing a fake file path that couldn't launch. Such
+  shortcuts now launch via the .lnk itself, so Windows resolves the URI
+  exactly as Explorer does.
+- **URI shortcuts were dimmed as "Not found".** Protocol URIs are never
+  missing files, so the launcher's dead-target check no longer flags them.
+
 ## [1.7.0] - 2026-08-13
 
 ### Added

@@ -9,6 +9,7 @@ using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using GroupTasker.Application.Services;
+using GroupTasker.Domain;
 using GroupTasker.Domain.Entities;
 using GroupTasker.Domain.Interfaces;
 
@@ -320,6 +321,8 @@ public partial class LauncherShortcutViewModel : ViewModelBase
             ShortcutType.Folder => !Directory.Exists(path),
             ShortcutType.StoreApp => false,
             ShortcutType.LiveApplication => false,
+            // Protocol URIs (steam://, ms-settings:, mailto:…) are never "missing files"
+            ShortcutType.Link when ShellUri.LooksLikeUri(path) => false,
             _ => !File.Exists(path)
         };
     }

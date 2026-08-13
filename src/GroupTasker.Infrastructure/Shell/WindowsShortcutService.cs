@@ -66,6 +66,20 @@ public sealed class WindowsShortcutService : IShortcutService
                     shortcut.TargetPath = sourcePath;
                     shortcut.DisplayName = Path.GetFileNameWithoutExtension(sourcePath);
                     break;
+                case ".appref-ms":
+                case ".website":
+                case ".bat":
+                case ".cmd":
+                case ".vbs":
+                case ".ps1":
+                case ".msc":
+                    // ClickOnce shortcuts, pinned-site shortcuts, and scripts:
+                    // everything Windows can shell-execute. The file itself is
+                    // the launch target — Windows resolves it like Explorer does.
+                    shortcut.Type = DomainShortcutType.Link;
+                    shortcut.TargetPath = sourcePath;
+                    shortcut.DisplayName = Path.GetFileNameWithoutExtension(sourcePath);
+                    break;
                 default:
                     if (Directory.Exists(sourcePath))
                     {
@@ -76,9 +90,18 @@ public sealed class WindowsShortcutService : IShortcutService
                     }
                     else if (sourcePath.Contains('!'))
                     {
+                        // AUMI — possibly pasted from Explorer as "shell:AppsFolder\<AUMI>".
+                        var id = StripShellAppsPrefix(sourcePath);
                         shortcut.Type = DomainShortcutType.StoreApp;
+                        shortcut.TargetPath = id;
+                        shortcut.DisplayName = _extractor.GetStoreAppName(id);
+                    }
+                    else if (ShellUri.LooksLikeUri(sourcePath))
+                    {
+                        // Typed-in protocol URI (steam://rungameid/730, ms-settings:…, mailto:…)
+                        shortcut.Type = DomainShortcutType.Link;
                         shortcut.TargetPath = sourcePath;
-                        shortcut.DisplayName = _extractor.GetStoreAppName(sourcePath);
+                        shortcut.DisplayName = sourcePath;
                     }
                     else
                     {
@@ -96,6 +119,20 @@ public sealed class WindowsShortcutService : IShortcutService
         }
 
         return shortcut;
+    }
+
+    /// <summary>
+    /// Strip a <c>shell:AppsFolder\</c> prefix from an AUMI pasted out of
+    /// Explorer, leaving just <c>Publisher.App!AppId</c>.
+    /// </summary>
+    private static string StripShellAppsPrefix(string value)
+    {
+        var id = value;
+        if (id.StartsWith("shell:", StringComparison.OrdinalIgnoreCase))
+            id = id["shell:".Length..];
+        if (id.StartsWith("appsFolder", StringComparison.OrdinalIgnoreCase))
+            id = id["appsFolder".Length..].TrimStart('\\', '/');
+        return id;
     }
 
     private DomainShortcut ResolveLink(DomainShortcut shortcut, string lnkPath)
@@ -131,6 +168,17 @@ public sealed class WindowsShortcutService : IShortcutService
                 // StoreApp, which caused GroupTasker to launch
                 // `explorer.exe shell:appsFolder\` (empty AUMI) — opening the
                 // user's Documents folder instead of the app.
+                shortcut.Type = DomainShortcutType.Link;
+                shortcut.TargetPath = lnkPath;
+                shortcut.DisplayName = Path.GetFileNameWithoutExtension(lnkPath);
+                return shortcut;
+            }
+
+            if (ShellUri.LooksLikeUri(target))
+            {
+                // URI-targeted .lnk (ms-settings:, steam:, shell:…). Path.GetFullPath
+                // would garble the URI into a fake file path. Launch the .lnk itself
+                // so Windows resolves the URI exactly as Explorer does.
                 shortcut.Type = DomainShortcutType.Link;
                 shortcut.TargetPath = lnkPath;
                 shortcut.DisplayName = Path.GetFileNameWithoutExtension(lnkPath);
