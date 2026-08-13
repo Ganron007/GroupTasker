@@ -18,7 +18,7 @@
         <StackPanel Grid.Row="0" Margin="0,0,0,12">
             <TextBlock Text="Pick a running app, pinned taskbar item, or installed game"
                        FontSize="14" Foreground="White" FontWeight="SemiBold" />
-            <TextBlock Text="Games from Steam, Epic, GOG, EA, Ubisoft, Rockstar, Battle.net and other launchers are listed from your libraries. Live apps are launched by process name or AUMI, so they survive app updates."
+            <TextBlock Text="Ctrl+click or Shift+click to select several at once. Games from Steam, Epic, GOG, EA, Ubisoft, Rockstar, Battle.net and other launchers are listed from your libraries. Live apps are launched by process name or AUMI, so they survive app updates."
                        FontSize="11" Foreground="#8F8F8F" Margin="0,4,0,0" TextWrapping="Wrap" />
         </StackPanel>
 
@@ -46,6 +46,8 @@
         <Border Grid.Row="2" Background="#202020" CornerRadius="4" Padding="4">
             <ListBox ItemsSource="{Binding Apps}"
                      SelectedItem="{Binding SelectedApp, Mode=TwoWay}"
+                     SelectedItems="{Binding SelectedApps}"
+                     SelectionMode="Multiple, Toggle"
                      Background="Transparent"
                      BorderThickness="0"
                      DoubleTapped="OnAppDoubleTapped">

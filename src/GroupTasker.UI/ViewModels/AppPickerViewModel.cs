@@ -25,6 +25,7 @@ public partial class AppPickerViewModel : ViewModelBase
 
     [ObservableProperty] private ObservableCollection<DiscoveredAppViewModel> _apps = [];
     [ObservableProperty] private DiscoveredAppViewModel? _selectedApp;
+    [ObservableProperty] private ObservableCollection<DiscoveredAppViewModel> _selectedApps = [];
     [ObservableProperty] private string _filter = "";
     [ObservableProperty] private string _category = "All";
 
@@ -33,7 +34,7 @@ public partial class AppPickerViewModel : ViewModelBase
         ["All", "🎮 Games", "📌 Taskbar", "⊞ Store", "▶ Running"];
 
     /// <summary>Result of the dialog — set by AddCommand, consumed by the caller.</summary>
-    public DiscoveredApp? DialogResult { get; private set; }
+    public IReadOnlyList<DiscoveredApp>? DialogResults { get; private set; }
 
     public AppPickerViewModel(IReadOnlyList<DiscoveredApp> apps, IShellGateway shell, ILogger logger)
     {
@@ -90,15 +91,16 @@ public partial class AppPickerViewModel : ViewModelBase
     [RelayCommand]
     private void Add()
     {
-        if (SelectedApp is null) return;
-        DialogResult = SelectedApp.Source;
+        // Multi-select: add every selected item (Ctrl+click / Shift+click).
+        if (SelectedApps.Count == 0) return;
+        DialogResults = SelectedApps.Select(a => a.Source).ToList();
         CloseRequested?.Invoke(this, true);
     }
 
     [RelayCommand]
     private void Cancel()
     {
-        DialogResult = null;
+        DialogResults = null;
         CloseRequested?.Invoke(this, false);
     }
 

@@ -201,64 +201,72 @@ public partial class GroupConfiguratorViewModel : ViewModelBase
                 DataContext = new AppPickerViewModel(apps, _shell, _logger)
             };
 
-            // The dialog returns the selected DiscoveredApp (or null if cancelled)
-            var selected = await picker.ShowPickerAsync(HostWindow);
-            if (selected is null) return;
+            // The dialog returns the selected DiscoveredApps (or null if cancelled).
+            // Multi-select is supported: Ctrl+click / Shift+click in the list.
+            var results = await picker.ShowPickerAsync(HostWindow);
+            if (results is null || results.Count == 0) return;
 
-            var launchKey = selected.Aumi ?? selected.ProcessName ?? selected.ExecutablePath ?? selected.DisplayName;
-            // Don't set IconPath here — leave it null so BuildIconsIfDirtyAsync
-            // extracts a fresh icon and stores it as a stable cached PNG.
-            // Setting it to selected.ExecutablePath would make the icon stale
-            // the moment the underlying app updates to a new version folder.
-            Shortcut shortcut;
-            if (!string.IsNullOrEmpty(selected.LnkPath) && string.IsNullOrEmpty(selected.Aumi))
+            foreach (var selected in results)
             {
-                // Pinned launcher-based games (Steam, Epic, …): the .lnk's
-                // target is the launcher exe and the actual game only exists
-                // in the .lnk's arguments. Launch + icon the .lnk itself so
-                // the game opens instead of the launcher.
-                shortcut = new Shortcut
-                {
-                    SourcePath = selected.LnkPath,
-                    TargetPath = selected.LnkPath,
-                    Type = ShortcutType.Link,
-                    DisplayName = selected.DisplayName,
-                    IconSourcePath = selected.LnkPath,
-                    IconPath = null
-                };
+                Shortcuts.Add(new ShortcutViewModel(BuildShortcutFromDiscoveredApp(selected)));
             }
-            else if (selected.Source == DiscoveredAppSource.GameLibrary &&
-                     !string.IsNullOrEmpty(selected.ExecutablePath))
-            {
-                // Library-scan game entry (Steam/Epic/GOG): launch the game exe
-                // directly. Steam games need Steam running, but this is the most
-                // reliable universal path for exe-based library entries.
-                shortcut = new Shortcut
-                {
-                    SourcePath = selected.ExecutablePath,
-                    TargetPath = selected.ExecutablePath,
-                    Type = ShortcutType.Application,
-                    DisplayName = selected.DisplayName,
-                    IconPath = null
-                };
-            }
-            else
-            {
-                shortcut = new Shortcut
-                {
-                    SourcePath = launchKey,
-                    TargetPath = selected.Aumi,
-                    Type = ShortcutType.LiveApplication,
-                    DisplayName = selected.DisplayName,
-                    IconPath = null
-                };
-            }
-            Shortcuts.Add(new ShortcutViewModel(shortcut));
         }
         catch (Exception ex)
         {
             ErrorMessage = $"Discovery failed: {ex.Message}";
         }
+    }
+
+    /// <summary>
+    /// Convert a discovered app into a domain shortcut:
+    /// <list type="bullet">
+    /// <item>.lnk-backed entries (pinned or Start Menu / desktop launcher games)
+    /// become <see cref="ShortcutType.Link"/> launched via the .lnk, so the
+    /// launcher's arguments open the game, not the launcher;</item>
+    /// <item>exe-backed game-library entries become <see cref="ShortcutType.Application"/>;</item>
+    /// <item>everything else becomes <see cref="ShortcutType.LiveApplication"/>.</item>
+    /// </list>
+    /// IconPath is deliberately left null so <c>BuildIconsIfDirtyAsync</c> extracts
+    /// a fresh icon and caches it as a stable PNG.
+    /// </summary>
+    private static Shortcut BuildShortcutFromDiscoveredApp(DiscoveredApp selected)
+    {
+        var launchKey = selected.Aumi ?? selected.ProcessName ?? selected.ExecutablePath ?? selected.DisplayName;
+
+        if (!string.IsNullOrEmpty(selected.LnkPath) && string.IsNullOrEmpty(selected.Aumi))
+        {
+            return new Shortcut
+            {
+                SourcePath = selected.LnkPath,
+                TargetPath = selected.LnkPath,
+                Type = ShortcutType.Link,
+                DisplayName = selected.DisplayName,
+                IconSourcePath = selected.LnkPath,
+                IconPath = null
+            };
+        }
+
+        if (selected.Source == DiscoveredAppSource.GameLibrary &&
+            !string.IsNullOrEmpty(selected.ExecutablePath))
+        {
+            return new Shortcut
+            {
+                SourcePath = selected.ExecutablePath,
+                TargetPath = selected.ExecutablePath,
+                Type = ShortcutType.Application,
+                DisplayName = selected.DisplayName,
+                IconPath = null
+            };
+        }
+
+        return new Shortcut
+        {
+            SourcePath = launchKey,
+            TargetPath = selected.Aumi,
+            Type = ShortcutType.LiveApplication,
+            DisplayName = selected.DisplayName,
+            IconPath = null
+        };
     }
 
     /// <summary>

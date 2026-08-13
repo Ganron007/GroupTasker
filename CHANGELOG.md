@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 The canonical version lives in `Directory.Build.props` — bump `<VersionPrefix>`
 there and add a new section at the top of this file for each release.
 
+## [1.7.3] - 2026-08-13
+
+### Added
+
+- **Multi-select in the ⚡ Live picker.** Ctrl+click or Shift+click selects
+  several discovered items at once (matching the + Add file picker), and Add
+  (button, context menu, or double-click) adds every selected item to the
+  group in one go.
+
 ## [1.7.2] - 2026-08-13
 
 ### Added

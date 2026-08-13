@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Input;
@@ -23,17 +24,17 @@ public partial class AppPickerDialog : Window
     }
 
     /// <summary>
-    /// Show the dialog and return the selected <see cref="DiscoveredApp"/>
+    /// Show the dialog and return the selected <see cref="DiscoveredApp"/>s
     /// (or null if the user cancelled).
     /// </summary>
-    public async Task<DiscoveredApp?> ShowPickerAsync(Window owner)
+    public async Task<IReadOnlyList<DiscoveredApp>?> ShowPickerAsync(Window owner)
     {
         var vm = (AppPickerViewModel)DataContext!;
-        var tcs = new TaskCompletionSource<DiscoveredApp?>();
+        var tcs = new TaskCompletionSource<IReadOnlyList<DiscoveredApp>?>();
 
         void OnCloseRequested(object? sender, bool accepted)
         {
-            tcs.TrySetResult(accepted ? vm.DialogResult : null);
+            tcs.TrySetResult(accepted ? vm.DialogResults : null);
             Close(accepted);
         }
 
