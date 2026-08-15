@@ -8,6 +8,12 @@ public sealed class LauncherSettings
     public int PositionX { get; set; }
     public int PositionY { get; set; }
 
+    /// <summary>
+    /// Per-group flyout positions, keyed by group id ("N" format). Each group's
+    /// flyout remembers its own spot instead of fighting over one global position.
+    /// </summary>
+    public Dictionary<string, SavedPosition>? GroupPositions { get; set; }
+
     /// <summary>Group to open when the global hotkey is pressed. <c>null</c> = fall back to the first group by CreatedAt.</summary>
     public Guid? PrimaryGroupId { get; set; }
 
@@ -19,4 +25,11 @@ public sealed class LauncherSettings
 
     /// <summary>Start with Windows, hidden in tray. <c>null</c> = default false.</summary>
     public bool? StartWithWindows { get; set; }
+}
+
+/// <summary>Saved flyout window position for one group.</summary>
+public sealed class SavedPosition
+{
+    public int X { get; set; }
+    public int Y { get; set; }
 }

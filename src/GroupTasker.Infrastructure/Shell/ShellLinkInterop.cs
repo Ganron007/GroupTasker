@@ -74,6 +74,40 @@ public static class ShellLinkInterop
     private const int MAX_PATH = 260;
 
     /// <summary>
+    /// Set the AppUserModelId of a single window. The taskbar groups a window
+    /// under the pinned icon whose AUMID matches, so each group's flyout must
+    /// carry its own group AUMID even though every flyout is hosted by the same
+    /// (tray) process — otherwise the active-window indicator always points at
+    /// whichever group launched the process first.
+    /// </summary>
+    public static void SetWindowAppUserModelId(IntPtr hwnd, string appUserModelId)
+    {
+        if (hwnd == IntPtr.Zero || string.IsNullOrEmpty(appUserModelId)) return;
+
+        try
+        {
+            var iid = typeof(IPropertyStore).GUID;
+            if (SHGetPropertyStoreForWindow(hwnd, ref iid, out var store) < 0 || store is null)
+                return;
+
+            var key = PropertyKey.AppUserModelId;
+            using var propVariant = new PropVariant(appUserModelId);
+            store.SetValue(ref key, ref propVariant.Value);
+            store.Commit();
+        }
+        catch
+        {
+            // Non-fatal: the window just keeps the process-default AUMID.
+        }
+    }
+
+    [DllImport("shell32.dll")]
+    private static extern int SHGetPropertyStoreForWindow(
+        IntPtr hwnd,
+        ref Guid riid,
+        [MarshalAs(UnmanagedType.Interface)] out IPropertyStore ppv);
+
+    /// <summary>
     /// Read the target URL of a URL-based .lnk (steam://rungameid/…,
     /// link2ea://…, battle.net://…). <c>IShellLinkW.GetPath</c> returns an
     /// empty string for these, so the URL must come from the property store

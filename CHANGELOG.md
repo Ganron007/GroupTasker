@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 The canonical version lives in `Directory.Build.props` — bump `<VersionPrefix>`
 there and add a new section at the top of this file for each release.
 
+## [1.7.4] - 2026-08-13
+
+### Fixed
+
+- **Multiple pinned groups no longer share one taskbar identity.** Every
+  flyout window now sets its own group AUMID
+  (`grouptasker.local.group.<id>`) via `SHGetPropertyStoreForWindow`, so the
+  taskbar's active-window indicator follows the pinned icon you actually
+  clicked — even though the warm tray process hosts every flyout. Previously
+  all flyouts attached to whichever group's shortcut launched the process
+  first.
+- **Per-group flyout positions.** Each group remembers its own window
+  position (`LauncherSettings.GroupPositions`) instead of fighting over one
+  global spot; never-saved groups get staggered default positions.
+- **Groups act independently.** Different groups can have their flyouts open
+  side by side (opening group B no longer closes group A); re-clicking the
+  same group focuses its existing flyout instead of reopening it.
+
 ## [1.7.3] - 2026-08-13
 
 ### Added

@@ -33,7 +33,7 @@ public partial class App : Avalonia.Application
     private LauncherSettingsService? _settingsService;
     private IHotkeyService? _hotkeyService;
     private ITrayIconService? _trayService;
-    private Window? _currentFlyout;
+    private readonly Dictionary<Guid, LauncherWindow> _flyouts = [];
     private Window? _configuratorWindow;
     private IServiceProvider? _provider;
     private bool _trayMode;
@@ -209,7 +209,7 @@ public partial class App : Avalonia.Application
 
         var logger = provider.GetRequiredService<ILogger>();
         _singleInstance = new SingleInstanceService(logger);
-        _singleInstance.OnShowGroup += n => ShowFlyout(n, provider);
+        _singleInstance.OnShowGroup += n => _ = ShowFlyout(n, provider);
         _singleInstance.Start();
     }
 
@@ -316,7 +316,7 @@ public partial class App : Avalonia.Application
         if (_provider is null) return;
         var group = await _provider.GetRequiredService<IGroupRepository>().GetByIdAsync(groupId);
         if (group is not null)
-            ShowFlyout(group.Name, _provider);
+            await ShowFlyout(group.Name, _provider);
     }
 
     private void RegisterHotkeyIfConfigured()
@@ -347,7 +347,7 @@ public partial class App : Avalonia.Application
                 ? groups.FirstOrDefault(g => g.Id == id) ?? groups.FirstOrDefault()
                 : groups.FirstOrDefault();
             if (group is not null)
-                ShowFlyout(group.Name, _provider);
+                await ShowFlyout(group.Name, _provider);
         });
     }
 
@@ -372,50 +372,96 @@ public partial class App : Avalonia.Application
         // the flyout itself. Later invocations will hand off to it.
         StartSingleInstanceServer(provider);
 
-        ShowFlyout(groupName, provider);
+        _ = ShowFlyout(groupName, provider);
     }
 
-    private void ShowFlyout(string groupName, IServiceProvider provider)
+    /// <summary>
+    /// Show the flyout for a group. One flyout per group at a time (re-clicking
+    /// the same group focuses its existing flyout); different groups can be open
+    /// side by side. Each flyout carries the group's AUMID so the taskbar shows
+    /// the active window under the correct pinned icon, and remembers its own
+    /// position across launches.
+    /// </summary>
+    private async Task ShowFlyout(string groupName, IServiceProvider provider)
     {
         if (!Dispatcher.UIThread.CheckAccess())
         {
-            Dispatcher.UIThread.Post(() => ShowFlyout(groupName, provider));
+            Dispatcher.UIThread.Post(() => _ = ShowFlyout(groupName, provider));
             return;
         }
 
-        if (_currentFlyout is not null)
+        // Resolve the group so we know its id (AUMID + saved position).
+        var repo = provider.GetRequiredService<IGroupRepository>();
+        var groups = await repo.GetAllAsync();
+        var group = groups.FirstOrDefault(g =>
+            g.Name.Equals(groupName, StringComparison.OrdinalIgnoreCase));
+
+        if (group is not null && _flyouts.TryGetValue(group.Id, out var open))
         {
-            _currentFlyout.Close();
-            _currentFlyout = null;
+            open.Activate();
+            if (open.WindowState == WindowState.Minimized)
+                open.WindowState = WindowState.Normal;
+            return;
         }
 
         var factory = provider.GetRequiredService<Func<string, LauncherViewModel>>();
         var vm = factory(groupName);
         var flyout = new LauncherWindow { DataContext = vm };
 
+        var groupId = group?.Id;
+        var groupKey = groupId?.ToString("N");
+
+        // Position: this group's saved spot, else a staggered default so two
+        // groups never stack on top of each other.
         var settings = _settingsService?.Load();
-        if (settings is { HasPosition: true })
+        if (groupKey is not null &&
+            settings?.GroupPositions is { } positions &&
+            positions.TryGetValue(groupKey, out var savedPos))
         {
-            flyout.Position = new PixelPoint(settings.PositionX, settings.PositionY);
+            flyout.Position = new PixelPoint(savedPos.X, savedPos.Y);
         }
         else
         {
             var (x, y) = TaskbarHelper.GetDefaultPosition(320, 200);
+            x += _flyouts.Count * 32;
+            y += _flyouts.Count * 32;
             flyout.Position = new PixelPoint(x, y);
         }
 
-        flyout.Closing += (_, _) =>
+        if (groupId is not null)
         {
-            // Preserve other settings (e.g. PrimaryGroupHotkey) when persisting the new position.
-            var current = _settingsService?.Load() ?? new LauncherSettings();
-            current.HasPosition = true;
-            current.PositionX = flyout.Position.X;
-            current.PositionY = flyout.Position.Y;
-            _settingsService?.Save(current);
-        };
+            var aumid = $"grouptasker.local.group.{groupId:N}";
+            // Apply the group's AUMID to the window as soon as its handle exists,
+            // so the taskbar indicator follows THIS group's pinned icon even
+            // though the tray process hosts every flyout.
+            flyout.Opened += (_, _) =>
+            {
+                var handle = flyout.TryGetPlatformHandle();
+                if (handle is not null)
+                    ShellLinkInterop.SetWindowAppUserModelId(handle.Handle, aumid);
+            };
 
-        flyout.Closed += (_, _) => _currentFlyout = null;
-        _currentFlyout = flyout;
+            // Per-group position — preserve other settings when persisting.
+            flyout.Closing += (_, _) =>
+            {
+                var current = _settingsService?.Load() ?? new LauncherSettings();
+                current.GroupPositions ??= new Dictionary<string, SavedPosition>();
+                current.GroupPositions[groupKey!] = new SavedPosition
+                {
+                    X = flyout.Position.X,
+                    Y = flyout.Position.Y
+                };
+                _settingsService?.Save(current);
+            };
+        }
+
+        if (groupId is not null)
+            _flyouts[groupId.Value] = flyout;
+        flyout.Closed += (_, _) =>
+        {
+            if (groupId is not null)
+                _flyouts.Remove(groupId.Value);
+        };
 
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime lt)
             lt.MainWindow = flyout;
