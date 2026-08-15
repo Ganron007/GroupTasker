@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 The canonical version lives in `Directory.Build.props` — bump `<VersionPrefix>`
 there and add a new section at the top of this file for each release.
 
+## [1.7.5] - 2026-08-13
+
+### Changed
+
+- **The flyout search box is now an optional per-group setting, off by
+  default.** The flyout is icon-first; enable "Show search box" in the group
+  editor to add the type-to-filter box to that group's flyout. The setting is
+  persisted per group and survives export/import.
+
 ## [1.7.4] - 2026-08-13
 
 ### Fixed

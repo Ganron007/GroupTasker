@@ -73,6 +73,7 @@ public partial class GroupConfiguratorViewModel : ViewModelBase
     [ObservableProperty] private ObservableCollection<ShortcutViewModel> _shortcuts = [];
     [ObservableProperty] private bool _isNewGroup = true;
     [ObservableProperty] private string? _errorMessage;
+    [ObservableProperty] private bool _showSearchBox;
 
     /// <summary>Free-form input for "Add by path/URL": any file path, protocol URI, or Store app ID.</summary>
     [ObservableProperty] private string _manualPath = "";
@@ -104,6 +105,7 @@ public partial class GroupConfiguratorViewModel : ViewModelBase
             IconSourcePath = existingGroup.IconPath;
             CustomIconPath = existingGroup.CustomIconPath;
             AccentColor = existingGroup.AccentColor ?? "";
+            ShowSearchBox = existingGroup.ShowSearchBox;
             IsNewGroup = false;
 
             Shortcuts = new ObservableCollection<ShortcutViewModel>(
@@ -383,6 +385,7 @@ public partial class GroupConfiguratorViewModel : ViewModelBase
                 _editingGroup.Name = GroupName;
                 _editingGroup.CustomIconPath = customIcon;
                 _editingGroup.AccentColor = accent;
+                _editingGroup.ShowSearchBox = ShowSearchBox;
                 _editingGroup.ReplaceShortcuts(Shortcuts.Select(s => s.DomainShortcut));
                 await _groupService.SaveGroupAsync(_editingGroup);
                 SavedGroup = _editingGroup;
@@ -395,7 +398,8 @@ public partial class GroupConfiguratorViewModel : ViewModelBase
                 {
                     Name = GroupName,
                     CustomIconPath = customIcon,
-                    AccentColor = accent
+                    AccentColor = accent,
+                    ShowSearchBox = ShowSearchBox
                 };
                 foreach (var s in Shortcuts)
                     newGroup.AddShortcut(s.DomainShortcut);

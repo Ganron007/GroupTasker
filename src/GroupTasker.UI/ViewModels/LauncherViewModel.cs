@@ -30,6 +30,7 @@ public partial class LauncherViewModel : ViewModelBase
     [ObservableProperty] private bool _isEmpty;
     [ObservableProperty] private bool _isReorderMode;
     [ObservableProperty] private string _filter = "";
+    [ObservableProperty] private bool _showSearchBox;
     [ObservableProperty] private Avalonia.Media.IBrush _accentColor = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#3A3A3A"));
 
     /// <summary>Raised after the <see cref="Shortcuts"/> collection is rebuilt by the filter.
@@ -69,6 +70,7 @@ public partial class LauncherViewModel : ViewModelBase
             }
 
             _loadedGroup = group;
+            ShowSearchBox = group.ShowSearchBox;
             try
             {
                 AccentColor = string.IsNullOrWhiteSpace(group.AccentColor)

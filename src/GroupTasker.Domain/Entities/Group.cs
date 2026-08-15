@@ -31,6 +31,12 @@ public sealed class Group
     public string? AccentColor { get; set; }
 
     /// <summary>
+    /// Show the type-to-filter search box at the top of this group's flyout.
+    /// Defaults to false — the flyout is icon-first and the box is optional.
+    /// </summary>
+    public bool ShowSearchBox { get; set; }
+
+    /// <summary>
     /// Shortcuts belonging to this group. Round-trips via <see cref="JsonIncludeAttribute"/>
     /// so the deserializer can populate the collection on init-only entities.
     /// </summary>

@@ -51,6 +51,14 @@
                              Padding="8,6" Width="100"
                              PlaceholderText="#4A9EFF" />
                 </StackPanel>
+                <StackPanel Spacing="6">
+                    <TextBlock Text="Flyout" FontSize="12" Foreground="#8F8F8F" />
+                    <CheckBox IsChecked="{Binding ShowSearchBox}"
+                              Content="Show search box"
+                              ToolTip.Tip="Adds a type-to-filter box at the top of this group's flyout (off by default)"
+                              FontSize="12" Foreground="White"
+                              VerticalAlignment="Center" />
+                </StackPanel>
             </StackPanel>
         </StackPanel>
 

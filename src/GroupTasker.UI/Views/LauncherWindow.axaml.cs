@@ -32,12 +32,15 @@ public partial class LauncherWindow : Window
 
     private void OnOpened(object? sender, EventArgs e)
     {
-        // Focus the filter textbox so the user can immediately type to search.
-        // Crucially, we do NOT re-focus on every filter change — that would steal
-        // focus from the textbox on every keystroke and force the user to click
-        // back into it to continue typing. The textbox keeps focus while typing;
-        // Down arrow moves focus into the shortcut grid.
-        Dispatcher.UIThread.Post(() => FilterTextBox.Focus(), DispatcherPriority.Input);
+        // Focus the filter textbox (when this group has it enabled) so the user
+        // can immediately type to search. Crucially, we do NOT re-focus on every
+        // filter change — that would steal focus from the textbox on every
+        // keystroke and force the user to click back into it to continue typing.
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (DataContext is LauncherViewModel { ShowSearchBox: true })
+                FilterTextBox.Focus();
+        }, DispatcherPriority.Input);
     }
 
     private void OnFilterKeyDown(object? sender, KeyEventArgs e)
@@ -79,7 +82,8 @@ public partial class LauncherWindow : Window
             if (DataContext is LauncherViewModel { Filter: { Length: > 0 } } vm)
             {
                 vm.Filter = "";
-                FilterTextBox.Focus();
+                if (FilterTextBox.IsVisible)
+                    FilterTextBox.Focus();
             }
             else
             {

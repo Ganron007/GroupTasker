@@ -21,7 +21,7 @@ A Windows taskbar group launcher — pin app groups to your taskbar and launch m
 - **Add by path/URL** — paste any path, protocol URI, or Store app ID directly into the configurator instead of browsing
 - **Proper `.lnk` icon extraction** — reads `IconLocation` from `IShellLinkW` so separate `.ico` files (Ollama `app.ico`, Claude, Codex) get the right colourful icon
 - **Global hotkey** — open your primary group from anywhere on the system. Default `Ctrl+Alt+G`, fully configurable in Settings (`Ctrl+Alt+G`, `Alt+F12`, `Ctrl+Shift+F1`, etc.)
-- **Search / filter inside the flyout** — type-to-filter textbox; matches shortcut name and target path. Esc clears, Esc again closes
+- **Search / filter inside the flyout** — optional per-group type-to-filter box (enable "Show search box" in the group editor; off by default); matches shortcut name and target path. Esc clears, Esc again closes
 - **Right-click context menu on flyout items** — Open file location, Edit shortcut, Copy path / AUMI, Properties (`SHObjectProperties` native Windows dialog), Remove from group
 - **System tray icon** — GroupTasker lives in the tray. Right-click for the group menu + Open configurator + Quit. Left-click opens the primary group
 - **Auto-start with Windows** — `HKCU\...\Run` + `--tray` flag, so the hotkey and tray work in the background the moment you sign in

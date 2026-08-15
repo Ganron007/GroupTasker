@@ -29,9 +29,10 @@
                        Cursor="Hand"
                        PointerPressed="OnDragStripPressed" />
 
-            <!-- Filter box -->
+            <!-- Filter box (optional per-group setting; hidden by default) -->
             <TextBox Grid.Row="1" Name="FilterTextBox"
                      Text="{Binding Filter, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                     IsVisible="{Binding ShowSearchBox}"
                      PlaceholderText="Filter…"
                      Background="Transparent"
                      Foreground="White"
