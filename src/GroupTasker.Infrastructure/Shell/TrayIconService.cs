@@ -48,6 +48,7 @@ public sealed class TrayIconService : ITrayIconService, IDisposable
     }
 
     public event Action? IconClicked;
+    public event Action? IconDoubleClicked;
     public event Action<string>? MenuAction;
 
     public void Show(string tooltipText)
@@ -110,7 +111,10 @@ public sealed class TrayIconService : ITrayIconService, IDisposable
             // BeginInvoke posts to this thread's message queue (which IS being
             // pumped by Application.Run).
             var host = new TrayHostForm();
-            host.Initialize(() => IconClicked?.Invoke(), key => MenuAction?.Invoke(key));
+            host.Initialize(
+                () => IconClicked?.Invoke(),
+                () => IconDoubleClicked?.Invoke(),
+                key => MenuAction?.Invoke(key));
             _host = host;
 
             _logger.Information("Tray icon ready: form={FormHandle} icon={IconHandle}",
@@ -144,8 +148,20 @@ internal sealed class TrayHostForm : Form
     private NotifyIcon? _icon;
     private ContextMenuStrip? _menu;
     private Action? _onClick;
+    private Action? _onDoubleClick;
     private Action<string>? _onMenuAction;
     private readonly Dictionary<ToolStripMenuItem, string> _actionKeys = new();
+
+    /// <summary>
+    /// How long a lone left-click waits for a second click before it is treated as a
+    /// single click. Roughly the Windows default double-click time (500ms) is too long
+    /// because the flyout would feel laggy, so we use a tighter 250ms.
+    /// </summary>
+    private const int DoubleClickDelayMs = 250;
+
+    private readonly System.Windows.Forms.Timer _clickTimer;
+    /// <summary>Stopwatch stamp of the first click of a potential double-click, or -1 when idle.</summary>
+    private long _pendingClickStamp = -1;
 
     public IntPtr IconHandle => _icon?.Icon?.Handle ?? IntPtr.Zero;
 
@@ -157,11 +173,15 @@ internal sealed class TrayHostForm : Form
         Width = Height = 0;
         StartPosition = FormStartPosition.Manual;
         Location = new Point(-32000, -32000);
+
+        _clickTimer = new System.Windows.Forms.Timer { Interval = DoubleClickDelayMs };
+        _clickTimer.Tick += OnClickTimerTick;
     }
 
-    public void Initialize(Action onClick, Action<string> onMenuAction)
+    public void Initialize(Action onClick, Action onDoubleClick, Action<string> onMenuAction)
     {
         _onClick = onClick;
+        _onDoubleClick = onDoubleClick;
         _onMenuAction = onMenuAction;
 
         _menu = new ContextMenuStrip();
@@ -171,23 +191,51 @@ internal sealed class TrayHostForm : Form
             Visible = false,
             Text = "GroupTasker",
         };
-        _icon.MouseClick += (_, e) =>
-        {
-            if (e.Button == MouseButtons.Left)
-            {
-                try { _onClick?.Invoke(); }
-                catch (Exception ex) { System.Diagnostics.Debug.WriteLine(ex); }
-            }
-        };
-        _icon.MouseDoubleClick += (_, e) =>
-        {
-            if (e.Button == MouseButtons.Left)
-            {
-                try { _onClick?.Invoke(); }
-                catch (Exception ex) { System.Diagnostics.Debug.WriteLine(ex); }
-            }
-        };
+
+        // Click vs double-click is disambiguated on MouseDown rather than by hooking
+        // both MouseClick and MouseDoubleClick. WinForms raises MouseClick for EVERY
+        // click of a double-click *and* MouseDoubleClick afterwards, so hooking both
+        // fires the single-click action 3x on a double-click — which is exactly how
+        // a double-click ended up opening the shortcut group instead of the app.
+        // Instead the single-click action waits on a short timer that a second
+        // MouseDown within the interval cancels.
+        _icon.MouseDown += OnIconMouseDown;
         _icon.ContextMenuStrip = _menu;
+    }
+
+    private void OnIconMouseDown(object? sender, MouseEventArgs e)
+    {
+        if (e.Button != MouseButtons.Left) return;
+
+        var now = System.Diagnostics.Stopwatch.GetTimestamp();
+        if (_pendingClickStamp >= 0 &&
+            System.Diagnostics.Stopwatch.GetElapsedTime(_pendingClickStamp, now)
+                < TimeSpan.FromMilliseconds(DoubleClickDelayMs))
+        {
+            // Second click of a double-click: cancel the queued single-click and
+            // run the double-click action instead.
+            _pendingClickStamp = -1;
+            _clickTimer.Stop();
+            Fire(_onDoubleClick);
+            return;
+        }
+
+        _pendingClickStamp = now;
+        _clickTimer.Stop();
+        _clickTimer.Start();
+    }
+
+    private void OnClickTimerTick(object? sender, EventArgs e)
+    {
+        _clickTimer.Stop();
+        _pendingClickStamp = -1;
+        Fire(_onClick);
+    }
+
+    private static void Fire(Action? action)
+    {
+        try { action?.Invoke(); }
+        catch (Exception ex) { System.Diagnostics.Debug.WriteLine(ex); }
     }
 
     public void SetTrayIcon(string tooltip)
@@ -206,6 +254,8 @@ internal sealed class TrayHostForm : Form
     public void ShutdownTrayIcon()
     {
         if (_icon is null) return;
+        _clickTimer.Stop();
+        _pendingClickStamp = -1;
         _icon.Visible = false;
         _icon.Dispose();
         _icon = null;

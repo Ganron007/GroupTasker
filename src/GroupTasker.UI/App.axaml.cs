@@ -223,7 +223,12 @@ public partial class App : Avalonia.Application
         if (!showInTray) return;
 
         _trayService = _provider.GetRequiredService<ITrayIconService>();
+        // Single left-click = the shortcut group flyout (the fast path, what the
+        // pinned taskbar shortcut does). Double-click = open the GroupTasker app
+        // itself, so the editor is always reachable without hunting the taskbar.
         _trayService.IconClicked += () => OpenPrimaryGroupFlyout();
+        _trayService.IconDoubleClicked += () =>
+            Dispatcher.UIThread.Post(ShowConfiguratorWindow);
         _trayService.MenuAction += OnTrayMenuAction;
         _trayService.Show("GroupTasker");
         RefreshTrayMenu();

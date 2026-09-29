@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 The canonical version lives in `Directory.Build.props` — bump `<VersionPrefix>`
 there and add a new section at the top of this file for each release.
 
+## [1.7.6] - 2026-09-30
+
+### Fixed
+
+- **Double-clicking the tray icon now opens the GroupTasker app instead of the
+  shortcut group.** The tray icon previously wired both `MouseClick` and
+  `MouseDoubleClick` to the same "open primary group flyout" action, so a
+  double-click opened the shortcut group flyout (three times over) and there
+  was no way to reach the editor from the tray icon at all. Single left-click
+  still opens the primary group flyout; double left-click now opens the
+  GroupTasker window. The two gestures are disambiguated on `MouseDown` with a
+  short 250 ms timer, so a double-click performs exactly one action instead of
+  three.
+
 ## [1.7.5] - 2026-08-13
 
 ### Changed

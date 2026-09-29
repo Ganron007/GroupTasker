@@ -19,8 +19,18 @@ public interface ITrayIconService : IDisposable
     /// <summary>Update the tooltip text without recreating the icon.</summary>
     void SetTooltip(string tooltipText);
 
-    /// <summary>Raised when the user left-clicks the tray icon (open the primary group flyout).</summary>
+    /// <summary>
+    /// Raised when the user left-clicks the tray icon (open the primary group flyout).
+    /// Does <b>not</b> fire for a double-click — see <see cref="IconDoubleClicked"/>.
+    /// </summary>
     event Action? IconClicked;
+
+    /// <summary>
+    /// Raised when the user double-clicks the tray icon (open the GroupTasker app window).
+    /// Kept distinct from <see cref="IconClicked"/> so a double-click opens the editor
+    /// rather than the shortcut group flyout.
+    /// </summary>
+    event Action? IconDoubleClicked;
 
     /// <summary>Raised when the user selects a menu item. <see cref="TrayMenuItem.ActionKey"/> identifies which item.</summary>
     event Action<string>? MenuAction;
