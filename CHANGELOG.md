@@ -7,7 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 The canonical version lives in `Directory.Build.props` — bump `<VersionPrefix>`
 there and add a new section at the top of this file for each release.
 
+**Release-note convention.** Each version section opens with a `### What shipped`
+table so the notes auto-extracted by the release workflow read at a glance:
+one row per user-visible behaviour change, "Before → After" where a behaviour
+changed. Prose bullets under `### Added` / `### Fixed` / `### Changed` follow for
+the detail.
+
 ## [1.7.6] - 2026-09-30
+
+### What shipped
+
+| Gesture on tray icon | Result |
+|---|---|
+| Single left-click | Primary group flyout (unchanged) |
+| Double left-click | **GroupTasker app window (new)** |
+| Right-click | Menu: groups, Open, Exit |
 
 ### Fixed
 
@@ -23,6 +37,14 @@ there and add a new section at the top of this file for each release.
 
 ## [1.7.5] - 2026-08-13
 
+### What shipped
+
+| Where | Before | After |
+|---|---|---|
+| Flyout search box | Always shown | Optional per group, **off by default** |
+
+Enable **Show search box** in the group editor to bring it back for that group.
+
 ### Changed
 
 - **The flyout search box is now an optional per-group setting, off by
@@ -31,6 +53,14 @@ there and add a new section at the top of this file for each release.
   persisted per group and survives export/import.
 
 ## [1.7.4] - 2026-08-13
+
+### What shipped
+
+| Area | Before | After |
+|---|---|---|
+| Taskbar indicator | Stuck on the first group's icon | Follows the pinned icon you clicked |
+| Flyout position | One shared spot | Each group remembers its own |
+| Multiple groups | Opening B closed A | Groups open independently, side by side |
 
 ### Fixed
 
@@ -50,6 +80,13 @@ there and add a new section at the top of this file for each release.
 
 ## [1.7.3] - 2026-08-13
 
+### What shipped
+
+| Action | Result |
+|---|---|
+| Ctrl+click / Shift+click in ⚡ Live picker | Select several items |
+| Add | Adds every selected item to the group in one go |
+
 ### Added
 
 - **Multi-select in the ⚡ Live picker.** Ctrl+click or Shift+click selects
@@ -58,6 +95,22 @@ there and add a new section at the top of this file for each release.
   group in one go.
 
 ## [1.7.2] - 2026-08-13
+
+### What shipped
+
+| Where | Before | After |
+|---|---|---|
+| Desktop shortcuts | Not discovered | Scanned by the picker |
+| `+ Add` file picker | Opened elsewhere | Opens on the **Desktop** |
+| Picker list | ~300 store apps buried everything | Games/launchers sort to the top |
+
+| Category filter | |
+|---|---|
+| All | Everything |
+| 🎮 Games | Installed games and launchers |
+| 📌 Taskbar | Pinned taskbar items |
+| ⊞ Store | Microsoft Store apps |
+| ▶ Running | Currently running processes |
 
 ### Added
 
@@ -88,6 +141,16 @@ there and add a new section at the top of this file for each release.
 
 ## [1.7.1] - 2026-08-13
 
+### What shipped
+
+| Shortcut kind | Status |
+|---|---|
+| `.appref-ms` (ClickOnce) | Supported |
+| `.website` (pinned site) | Supported |
+| `.bat` `.cmd` `.ps1` `.vbs` `.msc` | Supported |
+| Protocol URIs (`steam://`, `ms-settings:`) | Supported — paste into **Add by path/URL** |
+| `.lnk` pointing at a URI | Launches the URI (was broken) |
+
 ### Added
 
 - **All shortcut kinds are now first-class.** The + Add picker and resolver
@@ -112,6 +175,17 @@ there and add a new section at the top of this file for each release.
   missing files, so the launcher's dead-target check no longer flags them.
 
 ## [1.7.0] - 2026-08-13
+
+### What shipped
+
+| Game source | How it's found |
+|---|---|
+| Start Menu (generic) | Scans for launcher shortcuts — EA, Ubisoft, Rockstar, Battle.net, Riot, GOG, itch.io |
+| Steam | `libraryfolders.vdf` + `appmanifest_*.acf` |
+| Epic | `Manifests\*.item` |
+| GOG | `GOG.com\Games` registry |
+
+Pinned launcher games now open the **game**, not the launcher.
 
 ### Added
 
