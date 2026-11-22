@@ -13,6 +13,25 @@ one row per user-visible behaviour change, "Before → After" where a behaviour
 changed. Prose bullets under `### Added` / `### Fixed` / `### Changed` follow for
 the detail.
 
+## [1.7.7] - 2026-11-22
+
+### What shipped
+
+| Where | Before | After |
+|---|---|---|
+| Downloaded release ZIP | App files missing; `GroupTasker.exe` shows a reinstall error | Complete app included; both executables verified before publishing |
+
+### Fixed
+
+- **Release packages now contain the app itself.** The release workflow built
+  the solution without a RID and then published with `-r win-x64 --no-build`.
+  MSBuild therefore looked for RID-specific app outputs that did not exist and
+  failed with `MSB3030`; the error was hidden because the launcher publish in
+  the same step still succeeded. Both ZIPs shipped without `GroupTasker.App.exe`,
+  its DLL, and its runtime configuration. The workflow no longer uses
+  `--no-build`, checks every publish command's exit code, and fails the job
+  before packaging if either executable is missing.
+
 ## [1.7.6] - 2026-09-30
 
 ### What shipped

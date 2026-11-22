@@ -31,6 +31,9 @@ jobs:
       - name: Test
         run: dotnet test GroupTasker.sln --configuration Release --no-build --verbosity normal
 
+      # Do NOT pass --no-build here: the Build step above does not target
+      # win-x64, so a RID-specific publish has no app outputs to copy and fails
+      # with MSB3030. Let publish build with the requested RID instead.
       - name: Publish self-contained
         run: |
           dotnet publish src/GroupTasker.UI/GroupTasker.UI.csproj `
@@ -38,13 +41,13 @@ jobs:
             --runtime win-x64 `
             --self-contained true `
             --no-restore `
-            --no-build `
             -o ./publish/GroupTasker-self-contained
+          if ($LASTEXITCODE -ne 0) { throw "Self-contained UI publish failed" }
           dotnet publish src/GroupTasker.Launcher/GroupTasker.Launcher.csproj `
             --configuration Release `
             --no-restore `
-            --no-build `
             -o ./publish/GroupTasker-self-contained
+          if ($LASTEXITCODE -ne 0) { throw "Launcher publish failed" }
 
       - name: Publish framework-dependent
         run: |
@@ -53,13 +56,21 @@ jobs:
             --runtime win-x64 `
             --no-self-contained `
             --no-restore `
-            --no-build `
             -o ./publish/GroupTasker-fxdep
+          if ($LASTEXITCODE -ne 0) { throw "Framework-dependent UI publish failed" }
           dotnet publish src/GroupTasker.Launcher/GroupTasker.Launcher.csproj `
             --configuration Release `
             --no-restore `
-            --no-build `
             -o ./publish/GroupTasker-fxdep
+          if ($LASTEXITCODE -ne 0) { throw "Launcher publish failed" }
+
+      - name: Verify published apps
+        run: |
+          foreach ($dir in @('./publish/GroupTasker-self-contained', './publish/GroupTasker-fxdep')) {
+            foreach ($file in @('GroupTasker.exe', 'GroupTasker.App.exe', 'GroupTasker.App.dll', 'GroupTasker.App.runtimeconfig.json')) {
+              if (-not (Test-Path (Join-Path $dir $file))) { throw "Missing $file in $dir" }
+            }
+          }
 
       - name: Package zips
         run: |
