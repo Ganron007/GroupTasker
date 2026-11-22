@@ -23,7 +23,7 @@ A Windows taskbar group launcher — pin app groups to your taskbar and launch m
 - **Global hotkey** — open your primary group from anywhere on the system. Default `Ctrl+Alt+G`, fully configurable in Settings (`Ctrl+Alt+G`, `Alt+F12`, `Ctrl+Shift+F1`, etc.)
 - **Search / filter inside the flyout** — optional per-group type-to-filter box (enable "Show search box" in the group editor; off by default); matches shortcut name and target path. Esc clears, Esc again closes
 - **Right-click context menu on flyout items** — Open file location, Edit shortcut, Copy path / AUMI, Properties (`SHObjectProperties` native Windows dialog), Remove from group
-- **System tray icon** — GroupTasker lives in the tray. Right-click for the group menu + Open configurator + Quit. Left-click opens the primary group
+- **System tray icon** — GroupTasker lives in the tray. Left-click opens the primary group flyout, double-click opens the app window, right-click shows the group menu + Open configurator + Quit
 - **Auto-start with Windows** — `HKCU\...\Run` + `--tray` flag, so the hotkey and tray work in the background the moment you sign in
 - **Per-group custom icon + accent colour** — upload your own `.ico`/PNG for the taskbar pin; tint the flyout border with a hex colour
 - **Export / import groups** — JSON backup of every group + shortcut, restorable on any machine
@@ -75,7 +75,7 @@ The latest is always at the top. Each release has:
 - `GroupTasker-vX.Y.Z-fxdep-win-x64.zip` — framework-dependent (≈37 MB)
 - `*.md5` — MD5 checksums
 
-Local release notes (for reference) live in `out\release\vX.Y.Z\RELEASE-vX.Y.Z.md`. See [CHANGELOG.md](CHANGELOG.md) for the full version history.
+Release notes are attached to each GitHub Release; the full version history lives in [CHANGELOG.md](CHANGELOG.md).
 
 ## Usage
 
@@ -107,6 +107,7 @@ tests/
 - Framework-dependent publish: `--no-self-contained` for a smaller footprint (≈37 MB); requires the .NET 9 Desktop Runtime on the target machine.
 - A .NET Framework 4.8 launcher shim (`src\GroupTasker.Launcher\`) is published into the output folder as `GroupTasker.exe`. It launches the Avalonia app and (on the framework-dependent build) shows a download-link popup if the .NET 9 runtime is missing.
 - CI: `.github/workflows/ci.yml` (build + test on every PR) and `release.yml` (build + zip + GitHub Release on every `v*` tag).
+- When publishing for a RID (`-r win-x64`), let `dotnet publish` build with that RID — do not combine it with `--no-build` after a non-RID solution build, or the app's own outputs will be missing. The release workflow checks every publish's exit code and verifies both executables before zipping.
 - Version is managed in `Directory.Build.props`; update it and add a section to `CHANGELOG.md` for each release.
 
 ## License
